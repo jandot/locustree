@@ -1,0 +1,15 @@
+h1. RecTree - Ruby implementation of R-Tree
+
+_"Features should not know where they are" (James Bonfield, WTSI - paraphrased)_
+
+h2. Problem setting
+
+Imagine an application that handles features on a chromosome (e.g. genes) and lets you select a region for which to return all of those features. As the mapping information is normally stored in the feature (having a _start_ and an _end_ on a chromosome), you have to go through all features sequentially to determine which ones are actually in your region and should be displayed.
+
+Or imagine a visualization like Google Maps but displaying quantitative information rather than streets and roads. Let's say the height of the terrain. Also suppose that you have data for every square meter in the UK. When you look at the whole of the UK at once in a 800x600 pixel display you won't be able to show all raw data but will have to average the data for large regions of the UK.
+
+h2. A solution
+
+What you can do to solve the above two problems, is build a hierarchical tree, where the top node contains the average for the complete dataset (i.c. terrain height), and a small group of non-intersecting leaf nodes. These leaf nodes together should make up the whole top node. Each leaf node again contains the average of all data within it, and is subdivided into ever smaller leaf nodes, and so on.
+
+When looking at a map of the whole of the UK, we know that we need height information for 800x600=480,000 pixels. Instead of loading the whole height dataset at this point, we just take that layer of the R-tree that contains 480,000 leafs or is the closest to it.
