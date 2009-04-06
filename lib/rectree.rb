@@ -32,7 +32,7 @@ class RecTree
     this_level = 0
     while self.nodes[this_level].length > 1
       new_level = Array.new
-      self.nodes[this_level].sort_by{|n| n.range.begin}.each_slice(3) do |node_group|
+      self.nodes[this_level].sort_by{|n| n.range.begin}.each_slice(@max_children) do |node_group|
         min_pos = node_group.collect{|n| n.range.begin}.min
         max_pos = node_group.collect{|n| n.range.end}.max
         new_node = RecTree::Node.new(self, Range.new(min_pos, max_pos), :index)
