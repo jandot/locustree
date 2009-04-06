@@ -14,6 +14,7 @@ class RecTree
   attr_accessor :root, :min_children, :max_children
   attr_accessor :nodes
   attr_accessor :positive_nodes
+  attr_accessor :depth
 
   def initialize(min_children, max_children)
     @min_children, @max_children = min_children, max_children
@@ -31,18 +32,19 @@ class RecTree
 
     this_level = 0
     while self.nodes[this_level].length > 1
-      new_level = Array.new
+      new_level_members = Array.new
       self.nodes[this_level].sort_by{|n| n.range.begin}.each_slice(@max_children) do |node_group|
         min_pos = node_group.collect{|n| n.range.begin}.min
         max_pos = node_group.collect{|n| n.range.end}.max
         new_node = RecTree::Node.new(self, Range.new(min_pos, max_pos), :index)
         new_node.level = this_level + 1
         new_node.children = node_group.to_a
-        new_level.push(new_node)
+        new_level_members.push(new_node)
       end
-      self.nodes[this_level + 1] = new_level
+      self.nodes[this_level + 1] = new_level_members
       this_level += 1
     end
+    @depth = this_level + 1
     
     
   end
