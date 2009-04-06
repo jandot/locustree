@@ -1,4 +1,4 @@
-h1. RecTree - Ruby implementation of R-Tree
+h1. LocusTree - Ruby library to search genomic loci using R-Tree
 
 _"Features should not know where they are" (James Bonfield, WTSI - paraphrased)_
 
