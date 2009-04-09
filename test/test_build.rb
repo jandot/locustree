@@ -1,7 +1,7 @@
 require 'test/unit'
 require 'enumerator'
 
-require '../lib/locus_tree.rb'
+require File.dirname(__FILE__) + '/../lib/locus_tree.rb'
 
 class BulkLoad < Test::Unit::TestCase
   def setup
