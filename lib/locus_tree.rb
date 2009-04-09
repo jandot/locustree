@@ -1,15 +1,8 @@
 require 'yaml'
 require 'enumerator'
 
-class Range
-  def overlaps?(other_range)
-    self.include?(other_range.begin) or other_range.include?(self.begin)
-  end
-
-  def self.merge(ranges)
-    return Range.new(ranges.collect{|r| r.begin}.min, ranges.collect{|r| r.end}.max)
-  end
-end
+require File.dirname(__FILE__) + '/range.rb'
+require File.dirname(__FILE__) + '/locus.rb'
 
 class LocusTree
   attr_accessor :root, :min_children, :max_children
