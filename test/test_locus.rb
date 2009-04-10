@@ -64,4 +64,9 @@ class LocusTest < Test::Unit::TestCase
     assert_raise(ArgumentError) { ['abcd', 'efgh','ijkl'].merge}
     assert_raise(ArgumentError) { [@feature_a, @feature_c].merge}
   end
+
+  def test_code
+    assert_equal('01_000000001_000001000', @feature_a.code)
+    assert_equal('10_000000800_000001200', @feature_c.code)
+  end
 end

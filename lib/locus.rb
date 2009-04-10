@@ -1,4 +1,15 @@
+# To be used as mixin. Classes must provide @chromosome, @start and @stop.
 module IsLocus
+  attr_accessor :code
+  
+  def code
+    if @code.nil?
+      @code = [@chromosome.pad('0', 2), @start.to_s.pad('0', 9), @stop.to_s.pad('0', 9)].join('_')
+    else
+      return @code
+    end
+  end
+
   def range
     return Range.new(self.start, self.stop)
   end
