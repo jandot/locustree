@@ -17,6 +17,6 @@ class BulkLoad < Test::Unit::TestCase
   end
 
   def test_depth
-    assert_equal(4, @locus_tree.depth)
+    assert_equal(3, @locus_tree.depth)
   end
 end
