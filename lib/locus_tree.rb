@@ -4,6 +4,7 @@ require 'enumerator'
 require File.dirname(__FILE__) + '/range.rb'
 require File.dirname(__FILE__) + '/locus.rb'
 require File.dirname(__FILE__) + '/string.rb'
+require File.dirname(__FILE__) + '/object_stash.rb'
 
 class LocusTree
   attr_accessor :root, :min_children, :max_children
