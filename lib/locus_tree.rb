@@ -23,6 +23,7 @@ class LocusTree
       leaf_node = LocusTree::Node.new(self, Range.new(position.to_i, position.to_i), :leaf)
       leaf_node.value = value.to_f
       leaf_node.level = 0
+      leaf_node.nr_leaf_nodes = 1
       self.nodes[0].push(leaf_node)
     end
 
@@ -33,7 +34,8 @@ class LocusTree
         min_pos = node_group.collect{|n| n.range.begin}.min
         max_pos = node_group.collect{|n| n.range.end}.max
         new_node = LocusTree::Node.new(self, Range.new(min_pos, max_pos), :index)
-        new_node.value = node_group.inject(0){|sum, n| sum += n.value}/node_group.length
+        new_node.nr_leaf_nodes = node_group.inject(0){|sum, n| sum += n.nr_leaf_nodes}
+        new_node.value = node_group.inject(0){|sum, n| sum += n.nr_leaf_nodes*n.value}.to_f/new_node.nr_leaf_nodes
         new_node.level = this_level + 1
         new_node.children = node_group.to_a
         new_level_members.push(new_node)
@@ -71,13 +73,13 @@ class LocusTree
 
   def to_s
     output = Array.new
-    output.push @depth.to_s + "\t" + @root.range.to_s
+    output.push @depth.to_s + "\t" + @root.range.to_s + "\t" + @root.value.to_s
     @root.children.each do |node|
-      output.push "\t" + node.level.to_s + "\t" + node.range.to_s
+      output.push "\t" + node.level.to_s + "\t" + node.range.to_s + "\t" + node.value.to_s
       node.children.each do |subnode|
-        output.push "\t\t" + subnode.level.to_s + "\t" + subnode.range.to_s
+        output.push "\t\t" + subnode.level.to_s + "\t" + subnode.range.to_s + "\t" + subnode.value.to_s
         subnode.children.each do |subsubnode|
-          output.push "\t\t\t" + subsubnode.level.to_s + "\t" + subsubnode.range.to_s
+          output.push "\t\t\t" + subsubnode.level.to_s + "\t" + subsubnode.range.to_s + "\t" + subsubnode.value.to_s
         end
       end
     end
@@ -91,6 +93,7 @@ class LocusTree
     attr_accessor :parent, :children
     attr_accessor :range
     attr_accessor :value
+    attr_accessor :nr_leaf_nodes
 
     def initialize(rectree, range, type = :index, parent = nil)
       @rectree = rectree
