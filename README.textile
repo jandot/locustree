@@ -13,3 +13,42 @@ h2. A solution
 What you can do to solve the above two problems, is build a hierarchical tree, where the top node contains the average for the complete dataset (i.c. terrain height), and a small group of non-intersecting leaf nodes. These leaf nodes together should make up the whole top node. Each leaf node again contains the average of all data within it, and is subdivided into ever smaller leaf nodes, and so on.
 
 When looking at a map of the whole of the UK, we know that we need height information for 800x600=480,000 pixels. Instead of loading the whole height dataset at this point, we just take that layer of the R-tree that contains 480,000 leafs or is the closest to it.
+
+h3. Example data structure
+
+Suppose you have 20 ranges: 10..15, 20..25, 30..35, 40..45, ... A LocusTree with minimum number of children of 2 and maximum number of children of 3 would look like this (a 'value' for each of the ranges (e.g. read depth) is added between parentheses):
+<pre>
+  LEVEL 0           LEVEL 1             LEVEL 2            LEVEL 3 (=root)
+  10..15 (1)    -+
+  20..25 (2)     |- 10..35 (2)      -+
+  30..35 (3)    -+                   |
+  40..45 (4)    -+                   |
+  50..55 (5)     |- 40..64 (5)       |- 10..95 (5)      -+
+  60..65 (6)    -+                   |                   |
+  70..75 (7)    -+                   |                   |
+  80..85 (8)     |- 70..95 (8)      -+                   |
+  90..95 (9)    -+                                       |
+  100..105 (10) -+                                       |
+  110..115 (11)  |- 100..125 (11)   -+                   |
+  120..125 (12) -+                   |                   |- 10..205 (10.5)
+  130..135 (13) -+                   |                   |
+  140..145 (14)  |- 130..155 (14)    |- 100..185 (14)    |
+  150..155 (15) -+                   |                   |
+  160..165 (16) -+                   |                   |
+  170..175 (17)  |- 160..185 (17)   -+                   |
+  180..185 (18) -+                                       |
+  190..195 (19) -+                                       |
+  200..205 (20) -+- 190..205 (19.5) --- 190..205 (19.5) -+
+</pre>
+
+If you would have to display this whole region, but only have 7 pixels to do it in, you would use the data in LEVEL 1. It is no use trying to cram in all raw data from LEVEL 0 because it can't all be shown. For each parent node, the value for that node is the average of the child nodes weighted by the number of LEVEL 0 nodes that are covered by each child.
+
+h3. Usage
+
+<pre>
+require 'locus_tree'
+locus_tree = LocusTree.new(2,3)
+locus_tree.bulk_load('data_with_values.tsv')
+results = locus_tree.search(Range.new(41,89), 1)   # Search for that range returning nodes on LEVEL 1.
+puts results.collect{|n| n.value}.sort             # output: [5,8]
+</pre>
