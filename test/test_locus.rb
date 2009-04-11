@@ -3,25 +3,14 @@ require 'enumerator'
 
 require File.dirname(__FILE__) + '/../lib/locus_tree.rb'
 
-class Feature
-  include IsLocus
-  attr_accessor :chromosome, :start, :stop
-end
-
 class LocusTest < Test::Unit::TestCase
   def setup
-    @feature_a = Feature.new
-    @feature_a.chromosome, @feature_a.start, @feature_a.stop = '1', 1, 1000
-    @feature_b = Feature.new
-    @feature_b.chromosome, @feature_b.start, @feature_b.stop = '1', 800, 1200
-    @feature_c = Feature.new
-    @feature_c.chromosome, @feature_c.start, @feature_c.stop = '10', 800, 1200
-    @feature_d = Feature.new
-    @feature_d.chromosome, @feature_d.start, @feature_d.stop = '1', 500, 900
-    @feature_e = Feature.new
-    @feature_e.chromosome, @feature_e.start, @feature_e.stop = '1', 9999, 99999
-    @feature_f = Feature.new
-    @feature_f.chromosome, @feature_f.start, @feature_f.stop = '1', 1500, 5000
+    @feature_a = Locus.new('1', 1, 1000)
+    @feature_b = Locus.new('1', 800, 1200)
+    @feature_c = Locus.new('10', 800, 1200)
+    @feature_d = Locus.new('1', 500, 900)
+    @feature_e = Locus.new('1', 9999, 99999)
+    @feature_f = Locus.new('1', 1500, 5000)
   end
 
   def test_overlap
