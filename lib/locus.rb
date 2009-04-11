@@ -1,7 +1,13 @@
 # To be used as mixin. Classes must provide @chromosome, @start and @stop.
-module IsLocus
+class Locus
+  attr_accessor :chromosome, :start, :stop
+  attr_accessor :range
   attr_accessor :code
-  
+
+  def initialize(chr, start, stop)
+    @chromosome, @start, @stop = chr, start, stop
+    @range = Range.new(@start, @stop)
+  end
   def code
     if @code.nil?
       @code = [@chromosome.pad('0', 2), @start.to_s.pad('0', 9), @stop.to_s.pad('0', 9)].join('_')
@@ -45,15 +51,12 @@ module IsLocus
   end
 
   def merge(other_locus)
-    unless other_locus.class.include?(IsLocus) and other_locus.chromosome == self.chromosome
+    unless other_locus.class == Locus and other_locus.chromosome == self.chromosome
       raise ArgumentError, "Argument is not a Locus object"
     end
 
-    new_locus = self.class.new
-    new_locus.chromosome = self.chromosome
     new_range = self.range.merge(other_locus.range)
-    new_locus.start = new_range.begin
-    new_locus.stop = new_range.end
+    new_locus = self.class.new(self.chromosome, new_range.begin, new_range.end)
     return new_locus
   end
 
@@ -68,20 +71,16 @@ module IsLocus
 end
 
 class Array
-  # elements have to be of the same class (which implements IsLocus) and be on the same chromosome
   def merge
-    if self.entries.collect{|e| e.class}.uniq.length > 1
+    if self.collect{|e| e.class}.uniq.length > 1
       raise ArgumentError, "Not all elements of the same class"
-    elsif ! self[0].class.include?(IsLocus)
-      raise ArgumentError, "Elements must implement IsLocus"
-    elsif self.entries.collect{|e| e.chromosome}.uniq.length > 1
+    elsif not self[0].class == Locus
+      raise ArgumentError, "Elements must be Locus"
+    elsif self.collect{|e| e.chromosome}.uniq.length > 1
       raise ArgumentError, "Not all elements are loci on the same chromosome"
     end
 
-    new_locus = self[0].class.new
-    new_locus.chromosome = self[0].chromosome
-    new_locus.start = self.entries.collect{|e| e.start}.min
-    new_locus.stop = self.entries.collect{|e| e.stop}.max
+    new_locus = Locus.new(self[0].chromosome, self.collect{|e| e.start}.min, self.collect{|e| e.stop}.max)
     return new_locus
   end
 end
