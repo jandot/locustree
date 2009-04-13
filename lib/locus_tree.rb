@@ -17,13 +17,19 @@ class LocusTree
     @nodes = Hash.new(Array.new) #key = level
   end
 
-  #File must have 2 columns: locus(encoded) and value
+  # File must be in GFF format, the 4th column ("score") containing the value
+  # For example:
+  #   chr1	hg18	readdepth	1	    500   8433	.	.	.
+  #   chr1	hg18	readdepth	501  	1000	146 	.	.	.
+  #   chr1	hg18	readdepth	1001	1500	400 	.	.	.
+  #   chr1	hg18	readdepth	1501	2000	716 	.	.	.
+  #   chr1	hg18	readdepth	2001	2500	466 	.	.	.
+  # CAUTION: File has to be sorted beforehand!!
   def bulk_load(filename)
-    #create all leaf nodes and first index nodes
-    File.open(filename).sort_by{|v| v.to_i}.each do |line|
-      locus, value = line.chomp.split("\t")
-      chr, start, stop = locus.split(/_/)
-      chr.sub!(/^0+/,'')
+    # Create all leaf nodes nodes
+    File.open(filename).each do |line|
+      fields = line.chomp.split(" ")
+      chr, start, stop, value = fields[0], fields[3], fields[4], fields[5]
       leaf_node = LocusTree::Node.new(self, Locus.new(chr, start.to_i, stop.to_i), :leaf)
       leaf_node.value = value.to_f
       leaf_node.level = 0
@@ -31,6 +37,7 @@ class LocusTree
       self.nodes[0].push(leaf_node)
     end
 
+    # Create the tree on top of those leaf nodes
     this_level = 0
     while self.nodes[this_level].length > 1
       new_level_members = Array.new
