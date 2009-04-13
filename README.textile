@@ -48,7 +48,18 @@ h3. Usage
 <pre>
 require 'locus_tree'
 locus_tree = LocusTree.new(2,3)
-locus_tree.bulk_load('data_with_values.tsv')
+locus_tree.bulk_load('data_with_values.gff')
 results = locus_tree.search(Range.new(41,89), 1)   # Search for that range returning nodes on LEVEL 1.
 puts results.collect{|n| n.value}.sort             # output: [5,8]
+</pre>
+
+...or you can create the tree, save it and load it afterwards.
+<pre>
+require 'locus_tree'
+locus_tree = LocusTree.new(2,3)
+locus_tree.bulk_load('data_with_values.gff')
+locus_tree.store('data_with_values.store')
+
+#and later:
+locus_tree = LocusTree.load('data_with_values.store')
 </pre>
