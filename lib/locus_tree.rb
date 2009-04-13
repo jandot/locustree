@@ -75,6 +75,14 @@ class LocusTree
     return @positive_nodes
   end
 
+  def store(filename = 'locustree.store')
+    ObjectStash.store(self, filename)
+  end
+
+  def self.load(filename = 'locustree.store')
+    return ObjectStash.load(filename)
+  end
+
   def to_s
     output = Array.new
     output.push @depth.to_s + "\t" + @root.locus.to_s + "\t" + @root.value.to_s
