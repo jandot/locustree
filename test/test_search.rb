@@ -28,8 +28,8 @@ class SearchTest < Test::Unit::TestCase
   # 190 (value: 19)  -+                         |
   # 200 (value: 20)  -+- 190..200 --- 190..200 -+
   def setup
-    @locus_tree = LocusTree.new(2,3)
-    @locus_tree.bulk_load(File.dirname(__FILE__) + '/data/loci_with_values.tsv')
+    @locus_tree = LocusContainer.new(2,3)
+    @locus_tree.bulk_load(File.dirname(__FILE__) + '/data/loci_with_values.gff')
     @results_level_0 = @locus_tree.search(Locus.new('1',69,112))
     @results_level_1 = @locus_tree.search(Locus.new('1',69,112), 1)
     @results_level_2 = @locus_tree.search(Locus.new('1',69,112), 2)

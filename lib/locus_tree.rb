@@ -6,15 +6,13 @@ require File.dirname(__FILE__) + '/locus.rb'
 require File.dirname(__FILE__) + '/string.rb'
 require File.dirname(__FILE__) + '/object_stash.rb'
 
-class LocusTree
-  attr_accessor :root, :min_children, :max_children
-  attr_accessor :nodes
-  attr_accessor :positive_nodes
-  attr_accessor :depth
+class LocusContainer
+  attr_accessor :min_children, :max_children
+  attr_accessor :trees
 
   def initialize(min_children, max_children)
     @min_children, @max_children = min_children, max_children
-    @nodes = Hash.new(Array.new) #key = level
+    @trees = Hash.new
   end
 
   # File must be in GFF format, the 4th column ("score") containing the value
@@ -26,6 +24,10 @@ class LocusTree
   #   chr1	hg18	readdepth	2001	2500	466 	.	.	.
   # CAUTION: File has to be sorted beforehand!!
   def bulk_load(filename)
+    `cut -f 1 #{filename} | sort | uniq`.each do |chr|
+      @trees[chr.chomp] = LocusTree.new(@min_children, @max_children)
+    end
+
     # Create all leaf nodes nodes
     File.open(filename).each do |line|
       fields = line.chomp.split(" ")
@@ -34,29 +36,64 @@ class LocusTree
       leaf_node.value = value.to_f
       leaf_node.level = 0
       leaf_node.nr_leaf_nodes = 1
-      self.nodes[0].push(leaf_node)
+      self.trees[chr].nodes[0].push(leaf_node)
     end
 
     # Create the tree on top of those leaf nodes
-    this_level = 0
-    while self.nodes[this_level].length > 1
-      new_level_members = Array.new
-      self.nodes[this_level].sort_by{|n| n.locus.range.begin}.each_slice(@max_children) do |node_group|
-        min_pos = node_group.collect{|n| n.locus.range.begin}.min
-        max_pos = node_group.collect{|n| n.locus.range.end}.max
-        new_node = LocusTree::Node.new(self, Locus.new(node_group[0].locus.chromosome, min_pos, max_pos), :index)
-        new_node.nr_leaf_nodes = node_group.inject(0){|sum, n| sum += n.nr_leaf_nodes}
-        new_node.value = node_group.inject(0){|sum, n| sum += n.nr_leaf_nodes*n.value}.to_f/new_node.nr_leaf_nodes
-        new_node.level = this_level + 1
-        new_node.children = node_group.to_a
-        new_level_members.push(new_node)
+    @trees.each_key do |chr|
+      this_level = 0
+      while self.trees[chr].nodes[this_level].length > 1
+        new_level_members = Array.new
+        self.trees[chr].nodes[this_level].sort_by{|n| n.locus.range.begin}.each_slice(@max_children) do |node_group|
+          min_pos = node_group.collect{|n| n.locus.range.begin}.min
+          max_pos = node_group.collect{|n| n.locus.range.end}.max
+          new_node = LocusTree::Node.new(self.trees[chr], Locus.new(node_group[0].locus.chromosome, min_pos, max_pos), :index)
+          new_node.nr_leaf_nodes = node_group.inject(0){|sum, n| sum += n.nr_leaf_nodes}
+          new_node.value = node_group.inject(0){|sum, n| sum += n.nr_leaf_nodes*n.value}.to_f/new_node.nr_leaf_nodes
+          new_node.level = this_level + 1
+          new_node.children = node_group.to_a
+          new_level_members.push(new_node)
+        end
+        self.trees[chr].nodes[this_level + 1] = new_level_members
+        this_level += 1
       end
-      self.nodes[this_level + 1] = new_level_members
-      this_level += 1
+      self.trees[chr].depth = this_level
+      self.trees[chr].root = self.trees[chr].nodes[self.trees[chr].depth][0]
     end
-    @depth = this_level
-    @root = self.nodes[@depth][0]
-    
+  end
+
+  def to_s
+    output = Array.new
+    @trees.each_key do |chr|
+      output.push("Container for chromosome " + chr.to_s)
+      output.push @trees[chr].to_s
+    end
+    return output.join("\n")
+  end
+
+  def search(locus, search_level = 0, start_node = @trees[locus.chromosome].root)
+    return @trees[locus.chromosome].search(locus, search_level, start_node)
+  end
+  
+  def store(filename = 'locustree.store')
+    ObjectStash.store(self, filename)
+  end
+
+  def self.load(filename = 'locustree.store')
+    return ObjectStash.load(filename)
+  end
+end
+
+class LocusTree
+  attr_accessor :chromosomes
+  attr_accessor :root, :min_children, :max_children
+  attr_accessor :nodes
+  attr_accessor :positive_nodes
+  attr_accessor :depth
+
+  def initialize(min_children, max_children)
+    @min_children, @max_children = min_children, max_children
+    @nodes = Hash.new(Array.new) #key = level
   end
 
   def search(locus, search_level = 0, start_node = @root)
@@ -80,14 +117,6 @@ class LocusTree
       end
     end
     return @positive_nodes
-  end
-
-  def store(filename = 'locustree.store')
-    ObjectStash.store(self, filename)
-  end
-
-  def self.load(filename = 'locustree.store')
-    return ObjectStash.load(filename)
   end
 
   def to_s
@@ -154,12 +183,18 @@ if __FILE__ == $0
 #  puts locus_tree.min_children.to_s + "\t" + locus_tree.max_children.to_s
 
   #Build from the bottom (using packed method from http://donar.umiacs.umd.edu/quadtree/docs/locus_tree_split_rules.html#packed)
-  rectree = LocusTree.new(2, 3)
-  rectree.bulk_load(File.dirname(__FILE__) + '/../test/data/loci_with_values.tsv')
+#  rectree = LocusTree.new(2, 3)
+#  rectree.bulk_load(File.dirname(__FILE__) + '/../test/data/bindepth-500_chr1.gff')
+#  rectree.store(File.dirname(__FILE__) + '/data.store')
 #  puts rectree.nodes.to_yaml
 
   #Search
-  puts rectree.to_s
-  results = rectree.search(Locus.new('1',69,112), 2)
-  puts results.collect{|r| r.locus.to_s}.join("\t")
+#  puts rectree.to_s
+#  rectree = LocusTree.load(File.dirname(__FILE__) + '/data.store')
+#
+#  results = rectree.search(Locus.new('1',1000,50000), 2)
+#  puts results.collect{|r| r.locus.to_s}.join("\n")
+  tree_container = LocusContainer.new(2,3)
+  tree_container.bulk_load(File.dirname(__FILE__) + '/../test/data/loci_with_values.gff')
+  puts tree_container.to_s
 end
