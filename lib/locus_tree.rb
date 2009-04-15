@@ -39,13 +39,6 @@ module LocusTree
       return LocusTree::Container.first(:id => 1)
     end
 
-#    def initialize(min_children, max_children)
-#      container = LocusTree::Container.new
-#      container.min_children = min_children
-#      container.max_children = max_children
-#      container.save
-#    end
-
     # File must be in GFF format, the 4th column ("score") containing the value
     # For example:
     #   chr1	hg18	readdepth	1	    500   8433	.	.	.
@@ -78,23 +71,19 @@ module LocusTree
       end
 
       import_file = File.new('/tmp/sqlite_import.copy', 'w')
-      pbar = ProgressBar.new('leaf', 6045280)
       node_id = 0
       File.open(filename).each do |line|
-        pbar.inc
         fields = line.chomp.split(/\t/)
         chr, start, stop, value = fields[0], fields[3], fields[4], fields[5]
         node_id += 1
         import_file.puts [node_id, tree_hash[chr].id, level_hash[chr].id, chr, start.to_i, stop.to_i, value.to_f, 1, 'leaf', ''].join('|')
       end
-      pbar.finish
       import_file.close
       system "sqlite3 -separator '|' #{self.database_file} '.import /tmp/sqlite_import.copy locus_tree_nodes'"
       File.delete('/tmp/sqlite_import.copy')
 
       # Create the tree on top of those leaf nodes
       self.trees.each do |tree|
-        STDERR.puts "DEBUG: chromosome " + tree.chromosome.to_s
         this_level = level_hash[tree.chromosome]
         count = Node.count(:level_id => this_level.id)
         while count > 1
@@ -109,17 +98,6 @@ module LocusTree
             node_id += 1
             min_pos = node_group.collect{|n| n.start}.min
             max_pos = node_group.collect{|n| n.stop}.max
-#            new_node = LocusTree::Node.new
-#            new_node.tree_id = tree.id
-#            new_node.chromosome = node_group[0].chromosome
-#            new_node.start = min_pos
-#            new_node.stop = max_pos
-#            new_node.type = 'index'
-#            new_node.nr_leaf_nodes = node_group.inject(0){|sum, n| sum += n.nr_leaf_nodes}
-#            new_node.value = node_group.inject(0){|sum, n| sum += n.nr_leaf_nodes*n.value}.to_f/new_node.nr_leaf_nodes
-#            new_node.level_id = next_level.id
-#            new_node.child_ids = node_group.collect{|n| n.id}.join(',')
-#            new_node.save
             nr_leaf_nodes = node_group.inject(0){|sum, n| sum += n.nr_leaf_nodes}
             value = node_group.inject(0){|sum, n| sum += n.nr_leaf_nodes*n.value}.to_f/nr_leaf_nodes
             child_ids = node_group.collect{|n| n.id}.join(',')
@@ -153,14 +131,6 @@ module LocusTree
     def search(locus, search_level = 0, start_node = self.trees.first(:chromosome => locus.chromosome).root)
       return self.trees.first(:chromosome => locus.chromosome).search(locus, search_level, start_node)
     end
-
-#    def store(filename = 'locustree.store')
-#      ObjectStash.store(self, filename)
-#    end
-#
-#    def self.load(filename = 'locustree.store')
-#      return ObjectStash.load(filename)
-#    end
   end
 
   class Tree
@@ -175,15 +145,8 @@ module LocusTree
     has n, :levels
     has n, :nodes
 
-  #  attr_accessor :root, :min_children, :max_children
-  #  attr_accessor :nodes
     attr_accessor :positive_nodes
-  #  attr_accessor :depth
 
-
-#    def initialize
-#      @nodes = Hash.new(Array.new) #key = level
-#    end
 
     def root
       return Node.first(:id => self.root_id)
@@ -274,85 +237,5 @@ module LocusTree
       end
       return @children
     end
-
-#    def parent
-#      return self.first(:id => self.parent_id)
-#    end
-
-#    attr_accessor :rectree
-#    attr_accessor :type #is :root, :index or :leaf
-#    attr_accessor :level
-#    attr_accessor :parent, :children
-#    attr_accessor :locus
-#    attr_accessor :value
-#    attr_accessor :nr_leaf_nodes
-
-
-#    def initialize(tree, locus, type = :index, parent = nil)
-#      @rectree = tree
-#      @type = type
-#      @locus = locus
-#      @parent = parent
-#      @children = Array.new
-#      if @type == :root
-#        @rectree.root = self
-#      elsif ! @parent.nil?
-#        @parent.children.push(self)
-#        if @parent.children.length > @rectree.max_children
-#          @parent.split
-#        end
-#      end
-#    end
-
-    def overlaps?(locus)
-      @locus.overlaps?(locus)
-    end
-
-    def split
-
-    end
   end
-end
-
-if __FILE__ == $0
-#  locus_tree = LocusTree.new(2,10)
-#
-#  #Build from the top
-#  root = LocusTree::Node.new(locus_tree, Range.new(1,100), :root, nil)
-#  child1 = LocusTree::Node.new(locus_tree, Range.new(1,70), :index, root)
-#  child2 = LocusTree::Node.new(locus_tree, Range.new(71,100), :index, root)
-#  child3 = LocusTree::Node.new(locus_tree, Range.new(35,43), :index, child1)
-#  puts root.children.collect{|c| c.range.to_s}.join("\t")
-#  puts child3.range.to_s + "\t" + child3.parent.range.to_s
-#  puts locus_tree.root.range.to_s
-#  puts locus_tree.min_children.to_s + "\t" + locus_tree.max_children.to_s
-
-  #Build from the bottom (using packed method from http://donar.umiacs.umd.edu/quadtree/docs/locus_tree_split_rules.html#packed)
-#  rectree = LocusTree.new(2, 3)
-#  rectree.bulk_load(File.dirname(__FILE__) + '/../test/data/bindepth-500_chr1.gff')
-#  rectree.store(File.dirname(__FILE__) + '/data.store')
-#  puts rectree.nodes.to_yaml
-
-  #Search
-#  puts rectree.to_s
-#  rectree = LocusTree.load(File.dirname(__FILE__) + '/data.store')
-#
-#  results = rectree.search(Locus.new('1',1000,50000), 2)
-#  puts results.collect{|r| r.locus.to_s}.join("\n")
-
-
-  tree_container = LocusTree::Container.new(50,250)
-  tree_container.bulk_load(File.dirname(__FILE__) + '/../test/data/bindepth-500.gff')
-
-#  tree_container = LocusTree::Container.open
-#  puts tree_container.min_children.to_s + "\t" + tree_container.max_children.to_s
-#  results = tree_container.search(Locus.new('1',1000,490000), 1)
-#  puts results.collect{|n| n.locus.range.to_s}.join("\n")
-
-#  tree_container.store(File.dirname(__FILE__) + '/data.store')
-#  puts tree_container.to_s
-
-#  puts "Started loading"
-#  tree_container = LocusContainer.load(File.dirname(__FILE__) + '/data.store')
-#  puts tree_container.trees['3'].to_s
 end
