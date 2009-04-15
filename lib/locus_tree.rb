@@ -78,13 +78,13 @@ module LocusTree
 
       import_file = File.new('/tmp/sqlite_import.copy', 'w')
       pbar = ProgressBar.new('leaf', 6045280)
-      id = 0
+      node_id = 0
       File.open(filename).each do |line|
         pbar.inc
         fields = line.chomp.split(/\t/)
         chr, start, stop, value = fields[0], fields[3], fields[4], fields[5]
-        id += 1
-        import_file.puts [id, tree_hash[chr].id, level_hash[chr].id, chr, start.to_i, stop.to_i, value.to_f, 1, 'leaf', ''].join('|')
+        node_id += 1
+        import_file.puts [node_id, tree_hash[chr].id, level_hash[chr].id, chr, start.to_i, stop.to_i, value.to_f, 1, 'leaf', ''].join('|')
       end
       pbar.finish
       import_file.close
@@ -96,25 +96,36 @@ module LocusTree
         STDERR.puts "DEBUG: chromosome " + tree.chromosome.to_s
         this_level = level_hash[tree.chromosome]
         while this_level.nodes.length > 1
+          STDERR.puts "  DEBUG: level " + this_level.number.to_s
           next_level = LocusTree::Level.new
           next_level.tree_id = tree.id
           next_level.number = this_level.number + 1
           next_level.save
+          import_file = File.new('/tmp/sqlite_import.copy', 'w')
           this_level.nodes.sort_by{|n| n.start}.each_slice(self.max_children) do |node_group|
+            node_id += 1
             min_pos = node_group.collect{|n| n.start}.min
             max_pos = node_group.collect{|n| n.stop}.max
-            new_node = LocusTree::Node.new
-            new_node.tree_id = tree.id
-            new_node.chromosome = node_group[0].chromosome
-            new_node.start = min_pos
-            new_node.stop = max_pos
-            new_node.type = 'index'
-            new_node.nr_leaf_nodes = node_group.inject(0){|sum, n| sum += n.nr_leaf_nodes}
-            new_node.value = node_group.inject(0){|sum, n| sum += n.nr_leaf_nodes*n.value}.to_f/new_node.nr_leaf_nodes
-            new_node.level_id = next_level.id
-            new_node.child_ids = node_group.collect{|n| n.id}.join(',')
-            new_node.save
+#            new_node = LocusTree::Node.new
+#            new_node.tree_id = tree.id
+#            new_node.chromosome = node_group[0].chromosome
+#            new_node.start = min_pos
+#            new_node.stop = max_pos
+#            new_node.type = 'index'
+#            new_node.nr_leaf_nodes = node_group.inject(0){|sum, n| sum += n.nr_leaf_nodes}
+#            new_node.value = node_group.inject(0){|sum, n| sum += n.nr_leaf_nodes*n.value}.to_f/new_node.nr_leaf_nodes
+#            new_node.level_id = next_level.id
+#            new_node.child_ids = node_group.collect{|n| n.id}.join(',')
+#            new_node.save
+            nr_leaf_nodes = node_group.inject(0){|sum, n| sum += n.nr_leaf_nodes}
+            value = node_group.inject(0){|sum, n| sum += n.nr_leaf_nodes*n.value}.to_f/nr_leaf_nodes
+            child_ids = node_group.collect{|n| n.id}.join(',')
+            import_file.puts [node_id, tree.id, next_level.id, node_group[0].chromosome, min_pos, max_pos, value, nr_leaf_nodes, 'index', child_ids].join('|')
           end
+          import_file.close
+          system "sqlite3 -separator '|' #{self.database_file} '.import /tmp/sqlite_import.copy locus_tree_nodes'"
+          File.delete('/tmp/sqlite_import.copy')
+
           this_level = next_level
         end
         tree.depth = this_level.number
