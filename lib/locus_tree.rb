@@ -326,11 +326,14 @@ if __FILE__ == $0
 #  puts results.collect{|r| r.locus.to_s}.join("\n")
 
 
-  tree_container = LocusTree::Container.new(2,3)
-  tree_container.min_children = 2
-  tree_container.max_children = 3
-  tree_container.save
-  tree_container.bulk_load(File.dirname(__FILE__) + '/../test/data/loci_with_values.gff')
+  tree_container = LocusTree::Container.new(50,250)
+  tree_container.bulk_load(File.dirname(__FILE__) + '/../test/data/bindepth-500.gff')
+
+#  tree_container = LocusTree::Container.open
+#  puts tree_container.min_children.to_s + "\t" + tree_container.max_children.to_s
+#  results = tree_container.search(Locus.new('1',1000,490000), 1)
+#  puts results.collect{|n| n.locus.range.to_s}.join("\n")
+
 #  tree_container.store(File.dirname(__FILE__) + '/data.store')
 #  puts tree_container.to_s
 
