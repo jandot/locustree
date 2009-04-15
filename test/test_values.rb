@@ -5,7 +5,7 @@ require File.dirname(__FILE__) + '/../lib/locus_tree.rb'
 
 class ValuesTest < Test::Unit::TestCase
   def setup
-    @locus_tree = LocusContainer.new(2,3)
+    @locus_tree = LocusTree::Container.new(2,3,File.dirname(__FILE__) + '/rtree.sqlite3')
     @locus_tree.bulk_load(File.dirname(__FILE__) + '/data/loci_with_values.gff')
     @small_search_results_level_1 = @locus_tree.search(Locus.new('1',41,89), 1)
     @small_search_results_level_2 = @locus_tree.search(Locus.new('1',41,89), 2)
@@ -22,5 +22,9 @@ class ValuesTest < Test::Unit::TestCase
     assert_equal([5,8,11,14], @big_search_results_level_1.collect{|n| n.value}.sort)
     assert_equal([5,14], @big_search_results_level_2.collect{|n| n.value}.sort)
     assert_equal([10.5], @big_search_results_level_3.collect{|n| n.value}.sort)
+  end
+
+  def teardown
+    File.delete(File.dirname(__FILE__) + '/rtree.sqlite3')
   end
 end

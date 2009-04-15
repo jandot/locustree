@@ -28,7 +28,7 @@ class SearchTest < Test::Unit::TestCase
   # 190 (value: 19)  -+                         |
   # 200 (value: 20)  -+- 190..200 --- 190..200 -+
   def setup
-    @locus_tree = LocusContainer.new(2,3)
+    @locus_tree = LocusTree::Container.new(2,3,File.dirname(__FILE__) + '/rtree.sqlite3')
     @locus_tree.bulk_load(File.dirname(__FILE__) + '/data/loci_with_values.gff')
     @results_level_0 = @locus_tree.search(Locus.new('1',69,112))
     @results_level_1 = @locus_tree.search(Locus.new('1',69,112), 1)
@@ -41,5 +41,9 @@ class SearchTest < Test::Unit::TestCase
     assert_equal("70..95;100..125",                        @results_level_1.collect{|n| n.locus.range.to_s}.join(';'))
     assert_equal("10..95;100..185",                        @results_level_2.collect{|n| n.locus.range.to_s}.join(';'))
     assert_equal("10..205",                                @results_level_3.collect{|n| n.locus.range.to_s}.join(';'))
+  end
+
+  def teardown
+    File.delete(File.dirname(__FILE__) + '/rtree.sqlite3')
   end
 end
