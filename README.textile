@@ -71,3 +71,9 @@ locus_container = LocusTree::Container.open('index_file.sqlite3')
 results = locus_container.search(Locus.new('1',41,89), 1)
 puts results.collect{|n| n.value}.sort
 </pre>
+
+h2. To do
+
+* Add methods to insert datapoints
+* Add methods to split and merge nodes (based on Container.min_children)
+* Add additional ways to aggregate data other than the average value
