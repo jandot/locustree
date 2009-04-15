@@ -77,3 +77,4 @@ h2. To do
 * Add methods to insert datapoints
 * Add methods to split and merge nodes (based on Container.min_children)
 * Add additional ways to aggregate data other than the average value
+* Check if things still work with loci that are of different sizes and that overlap
