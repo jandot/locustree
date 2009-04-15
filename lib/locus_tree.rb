@@ -2,6 +2,7 @@ require 'yaml'
 require 'enumerator'
 require 'progressbar'
 require 'dm-core'
+require 'dm-aggregates'
 
 require File.dirname(__FILE__) + '/range.rb'
 require File.dirname(__FILE__) + '/locus.rb'
@@ -95,14 +96,16 @@ module LocusTree
       self.trees.each do |tree|
         STDERR.puts "DEBUG: chromosome " + tree.chromosome.to_s
         this_level = level_hash[tree.chromosome]
-        while this_level.nodes.length > 1
-          STDERR.puts "  DEBUG: level " + this_level.number.to_s
+        count = Node.count(:level_id => this_level.id)
+        while count > 1
           next_level = LocusTree::Level.new
           next_level.tree_id = tree.id
           next_level.number = this_level.number + 1
           next_level.save
           import_file = File.new('/tmp/sqlite_import.copy', 'w')
-          this_level.nodes.sort_by{|n| n.start}.each_slice(self.max_children) do |node_group|
+          #TODO: next line is really slow
+          this_level_nodes = Node.all(:level_id => this_level.id, :order => [:start])
+          this_level_nodes.each_slice(self.max_children) do |node_group|
             node_id += 1
             min_pos = node_group.collect{|n| n.start}.min
             max_pos = node_group.collect{|n| n.stop}.max
@@ -127,9 +130,10 @@ module LocusTree
           File.delete('/tmp/sqlite_import.copy')
 
           this_level = next_level
+          count = Node.count(:level_id => this_level.id)
         end
         tree.depth = this_level.number
-        root_node = Node.all(:tree_id => tree.id).sort_by{|n| n.level.number}[-1]
+        root_node = Node.first(:id => node_id)
         tree.root_id = root_node.id
         root_node.type = 'root'
         root_node.save
