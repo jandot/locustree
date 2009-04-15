@@ -6,7 +6,6 @@ require 'dm-core'
 require File.dirname(__FILE__) + '/range.rb'
 require File.dirname(__FILE__) + '/locus.rb'
 require File.dirname(__FILE__) + '/string.rb'
-require File.dirname(__FILE__) + '/object_stash.rb'
 
 DataMapper.setup(:default, 'sqlite3:' + File.dirname(__FILE__) + '/rtree.sqlite3')
 
