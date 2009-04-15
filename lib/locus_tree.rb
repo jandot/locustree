@@ -18,7 +18,7 @@ module LocusTree
     property :database_file, String
     has n, :trees
 
-    def initialize(min_children, max_children, filename = File.dirname(__FILE__) + '/rtree.sqlite3')
+    def initialize(min_children, max_children, filename = 'locus_tree.sqlite3')
       DataMapper.setup(:default, 'sqlite3:' + filename)
 
       LocusTree::Container.auto_migrate!
@@ -32,7 +32,7 @@ module LocusTree
       self.save
     end
 
-    def self.open(filename = File.dirname(__FILE__) + '/rtree.sqlite3')
+    def self.open(filename = 'locus_tree.sqlite3')
       DataMapper.setup(:default, 'sqlite3:' + filename)
       return LocusTree::Container.first(:id => 1)
     end
