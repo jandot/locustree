@@ -93,7 +93,8 @@ module LocusTree
 
       # Create the tree on top of those leaf nodes
       self.trees.each do |tree|
-        this_level = LocusTree::Level.first(:tree_id => tree.id, :number => 0)
+        STDERR.puts "DEBUG: chromosome " + tree.chromosome.to_s
+        this_level = level_hash[tree.chromosome]
         while this_level.nodes.length > 1
           next_level = LocusTree::Level.new
           next_level.tree_id = tree.id
