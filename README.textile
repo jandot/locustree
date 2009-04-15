@@ -72,6 +72,8 @@ results = locus_container.search(Locus.new('1',41,89), 1)
 puts results.collect{|n| n.value}.sort
 </pre>
 
+Creating this index for 6.04 million loci with a node size of 250 elements on my laptop took 43 minutes. However, when that index database was created, it can be accessed and queried in fractions of seconds.
+
 h2. To do
 
 * Add methods to insert datapoints
