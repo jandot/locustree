@@ -17,6 +17,7 @@ module LocusTree
     property :id, Integer, :serial => true
     property :min_children, Integer
     property :max_children, Integer
+    property :database_file, String
     has n, :trees
 
     def initialize(min_children, max_children, filename = File.dirname(__FILE__) + '/rtree.sqlite3')
@@ -29,8 +30,15 @@ module LocusTree
 
       self.min_children = min_children
       self.max_children = max_children
+      self.database_file = filename
       self.save
     end
+
+    def self.open(filename = File.dirname(__FILE__) + '/rtree.sqlite3')
+      DataMapper.setup(:default, 'sqlite3:' + filename)
+      return LocusTree::Container.first(:id => 1)
+    end
+
 #    def initialize(min_children, max_children)
 #      container = LocusTree::Container.new
 #      container.min_children = min_children
@@ -54,30 +62,36 @@ module LocusTree
         tree.save
       end
 
+      tree_hash = Hash.new
+      self.trees.each do |t|
+        tree_hash[t.chromosome] = t
+      end
+
       # Create all leaf nodes
+      level_hash = Hash.new
       self.trees.each do |tree|
         level_zero = LocusTree::Level.new
         level_zero.tree_id = tree.id
         level_zero.number = 0
         level_zero.save
+        level_hash[tree.chromosome] = level_zero
       end
 
+      import_file = File.new('/tmp/sqlite_import.copy', 'w')
+      pbar = ProgressBar.new('leaf', 6045280)
+      id = 0
       File.open(filename).each do |line|
+        pbar.inc
         fields = line.chomp.split(/\t/)
         chr, start, stop, value = fields[0], fields[3], fields[4], fields[5]
-        node = LocusTree::Node.new
-        node.tree_id = self.trees.first(:chromosome => chr).id
-        node.chromosome = chr
-        node.start = start.to_i
-        node.stop = stop.to_i
-        node.type = 'leaf'
-        node.value = value.to_f
-        node.level_id = LocusTree::Level.first(:tree_id => self.trees.first(:chromosome => chr).id, :number => 0).id
-        node.nr_leaf_nodes = 1
-#        self.trees[chr].nodes[0].push(node)
-        node.save
+        id += 1
+        import_file.puts [id, tree_hash[chr].id, level_hash[chr].id, chr, start.to_i, stop.to_i, value.to_f, 1, 'leaf', ''].join('|')
       end
-      
+      pbar.finish
+      import_file.close
+      system "sqlite3 -separator '|' #{self.database_file} '.import /tmp/sqlite_import.copy locus_tree_nodes'"
+      File.delete('/tmp/sqlite_import.copy')
+
       # Create the tree on top of those leaf nodes
       self.trees.each do |tree|
         this_level = LocusTree::Level.first(:tree_id => tree.id, :number => 0)
@@ -104,7 +118,7 @@ module LocusTree
           this_level = next_level
         end
         tree.depth = this_level.number
-        root_node = Node.first(:tree_id => tree.id, :level_id => this_level.id)
+        root_node = Node.all(:tree_id => tree.id).sort_by{|n| n.level.number}[-1]
         tree.root_id = root_node.id
         root_node.type = 'root'
         root_node.save

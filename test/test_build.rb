@@ -19,8 +19,4 @@ class BulkLoad < Test::Unit::TestCase
   def test_depth
     assert_equal(3, @locus_tree.trees.first(:chromosome => '1').depth)
   end
-
-#  def teardown
-#    File.delete(File.dirname(__FILE__) + '/rtree.sqlite3')
-#  end
 end
