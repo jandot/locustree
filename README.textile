@@ -43,23 +43,31 @@ Suppose you have 20 ranges: 10..15, 20..25, 30..35, 40..45, ... A LocusTree with
 
 If you would have to display this whole region, but only have 7 pixels to do it in, you would use the data in LEVEL 1. It is no use trying to cram in all raw data from LEVEL 0 because it can't all be shown. For each parent node, the value for that node is the average of the child nodes weighted by the number of LEVEL 0 nodes that are covered by each child.
 
+h3. Terms
+
+Because of the nature of the beast, several objects have to play together to provide this functionality:
+
+* *LocusTree::Node*: This is the bin that contains data. There are 3 types of nodes: (1) _leaf_, which is a bin at the highest resolution (currently, every single input locus gets its own leaf node), (2) _index_, which is any bin containing other bins, and (3) _root_, which is the top bin. There is only one _root_ node per tree.
+* *LocusTree::Level*: All leaf nodes are level 0, and are binned into a bin level 1, which in turn...
+* *LocusTree::Tree*: Every independent scaffold (i.e. chromosome, contig, linkage_group, ...) has its own tree, because it does not make sense to search for loci that span different chromosomes...
+* *LocusTree::Container*: The main container with all data. There's only one container.
+
 h3. Usage
 
+Input data has to be in GFF format.
+
 <pre>
 require 'locus_tree'
-locus_tree = LocusTree.new(2,3)
-locus_tree.bulk_load('data_with_values.gff')
-results = locus_tree.search(Range.new(41,89), 1)   # Search for that range returning nodes on LEVEL 1.
-puts results.collect{|n| n.value}.sort             # output: [5,8]
+locus_container = LocusTree::Container.new(2,3, 'index_file.sqlite3')
+locus_container.bulk_load('data_with_values.gff')
+results = locus_container.search(Locus.new('1',41,89), 1)   # Search for that range returning nodes on LEVEL 1.
+puts results.collect{|n| n.value}.sort                  # output: [5,8]
 </pre>
 
-...or you can create the tree, save it and load it afterwards.
+The above creates a database file (here named 'index_file.sqlite3') which can be used afterwards. So we don't need to recreate the index.
 <pre>
 require 'locus_tree'
-locus_tree = LocusTree.new(2,3)
-locus_tree.bulk_load('data_with_values.gff')
-locus_tree.store('data_with_values.store')
-
-#and later:
-locus_tree = LocusTree.load('data_with_values.store')
+locus_container = LocusTree::Container.open('index_file.sqlite3')
+results = locus_container.search(Locus.new('1',41,89), 1)
+puts results.collect{|n| n.value}.sort
 </pre>
