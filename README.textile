@@ -74,6 +74,20 @@ puts results.collect{|n| n.value}.sort
 
 Creating this index for 6.04 million loci with a node size of 250 elements on my laptop took 43 minutes. However, when that index database was created, it can be accessed and queried in fractions of seconds.
 
+h2. Sample
+
+There's a sample directory with two scripts: one to build the index and one to do a search. The example data is 1 million readdepth datapoints. This file is gzipped and has to be unpacked before the index script can use it.
+
+A very crude benchmark on different binsizes
+* *binsize = 50*
+** database size = 44Mb
+** building index takes 6 minutes 4 seconds
+** searching index (chr1 from pos 500 to 7000) takes less than 1 second
+* *binsize = 2*
+** database size = 87Mb
+** building index takes 16 minutes 10 seconds
+** searching index takes 4 seconds
+
 h2. To do
 
 * Add methods to insert datapoints
