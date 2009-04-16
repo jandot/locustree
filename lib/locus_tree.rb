@@ -1,6 +1,4 @@
-require 'yaml'
 require 'enumerator'
-require 'progressbar'
 require 'dm-core'
 require 'dm-aggregates'
 
@@ -234,6 +232,14 @@ module LocusTree
         end
       end
       return @children
+    end
+
+    def split
+      raise NotImplementedError
+    end
+
+    def merge(other_node)
+      raise NotImplementedError
     end
   end
 end
