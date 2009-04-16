@@ -76,7 +76,7 @@ Creating this index for 6.04 million loci with a node size of 250 elements on my
 
 h2. Sample
 
-There's a sample directory with two scripts: one to build the index and one to do a search. The example data is 1 million readdepth datapoints. This file is gzipped and has to be unpacked before the index script can use it.
+There's a sample directory with three scripts: one to build a collection of raw data, one to build the index and one to do a search. The example data is 1 million readdepth datapoints.
 
 A very crude benchmark on different binsizes
 * *binsize = 50*
