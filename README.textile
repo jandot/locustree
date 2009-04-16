@@ -83,3 +83,5 @@ h2. To do
 * Allow different approaches for creating the bins (e.g. based on number of elements, based on maximum range, ...)
 * Remove hard-coded temporary filename for sqlite3 import.
 * Decrease size of database
+* Speed up data loading (especially Array#each_slice)
+* Add inline documentation
