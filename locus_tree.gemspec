@@ -17,7 +17,7 @@ Gem::Specification.new do |s|
 
   s.add_dependency('dm-core', '>=0.9.11')
   s.add_dependency('dm-aggregates', '>=0.9.11')
-  s.add_dependency('do_sqlte3', '>=0.9.11')
+  s.add_dependency('do_sqlite3', '>=0.9.11')
 
   s.require_path = 'lib'
   s.autorequire = 'locus_tree'
