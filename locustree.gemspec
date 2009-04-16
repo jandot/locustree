@@ -13,7 +13,7 @@ Gem::Specification.new do |s|
   s.files.concat ["README.textile"]
 
   # s.rdoc_options << '--exclude' << '.'
-  s.has_rdoc = false
+  s.has_rdoc = true
 
   s.add_dependency('dm-core', '>=0.9.11')
   s.add_dependency('dm-aggregates', '>=0.9.11')

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html 
+     PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html>
+<head>
+  <title>bulk_load (LocusTree::Container)</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+  <link rel="stylesheet" href="../../.././rdoc-style.css" type="text/css" media="screen" />
+</head>
+<body class="standalone-code">
+  <pre><span class="ruby-comment cmt"># File lib/locus_tree.rb, line 92</span>
+    <span class="ruby-keyword kw">def</span> <span class="ruby-identifier">bulk_load</span>(<span class="ruby-identifier">filename</span>)
+      <span class="ruby-node">`cut -f 1 #{filename} | sort | uniq`</span>.<span class="ruby-identifier">each</span> <span class="ruby-keyword kw">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">chr</span><span class="ruby-operator">|</span>
+        <span class="ruby-identifier">tree</span> = <span class="ruby-constant">LocusTree</span><span class="ruby-operator">::</span><span class="ruby-constant">Tree</span>.<span class="ruby-identifier">new</span>
+        <span class="ruby-identifier">tree</span>.<span class="ruby-identifier">container_id</span> = <span class="ruby-keyword kw">self</span>.<span class="ruby-identifier">id</span>
+        <span class="ruby-identifier">tree</span>.<span class="ruby-identifier">chromosome</span> = <span class="ruby-identifier">chr</span>.<span class="ruby-identifier">chomp</span>
+        <span class="ruby-identifier">tree</span>.<span class="ruby-identifier">save</span>
+      <span class="ruby-keyword kw">end</span>
+
+      <span class="ruby-identifier">tree_hash</span> = <span class="ruby-constant">Hash</span>.<span class="ruby-identifier">new</span>
+      <span class="ruby-keyword kw">self</span>.<span class="ruby-identifier">trees</span>.<span class="ruby-identifier">each</span> <span class="ruby-keyword kw">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">t</span><span class="ruby-operator">|</span>
+        <span class="ruby-identifier">tree_hash</span>[<span class="ruby-identifier">t</span>.<span class="ruby-identifier">chromosome</span>] = <span class="ruby-identifier">t</span>
+      <span class="ruby-keyword kw">end</span>
+
+      <span class="ruby-comment cmt"># Create all leaf nodes</span>
+      <span class="ruby-identifier">level_hash</span> = <span class="ruby-constant">Hash</span>.<span class="ruby-identifier">new</span>
+      <span class="ruby-keyword kw">self</span>.<span class="ruby-identifier">trees</span>.<span class="ruby-identifier">each</span> <span class="ruby-keyword kw">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">tree</span><span class="ruby-operator">|</span>
+        <span class="ruby-identifier">level_zero</span> = <span class="ruby-constant">LocusTree</span><span class="ruby-operator">::</span><span class="ruby-constant">Level</span>.<span class="ruby-identifier">new</span>
+        <span class="ruby-identifier">level_zero</span>.<span class="ruby-identifier">tree_id</span> = <span class="ruby-identifier">tree</span>.<span class="ruby-identifier">id</span>
+        <span class="ruby-identifier">level_zero</span>.<span class="ruby-identifier">number</span> = <span class="ruby-value">0</span>
+        <span class="ruby-identifier">level_zero</span>.<span class="ruby-identifier">save</span>
+        <span class="ruby-identifier">level_hash</span>[<span class="ruby-identifier">tree</span>.<span class="ruby-identifier">chromosome</span>] = <span class="ruby-identifier">level_zero</span>
+      <span class="ruby-keyword kw">end</span>
+
+      <span class="ruby-identifier">import_file</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">new</span>(<span class="ruby-value str">'/tmp/sqlite_import.copy'</span>, <span class="ruby-value str">'w'</span>)
+      <span class="ruby-identifier">node_id</span> = <span class="ruby-value">0</span>
+      <span class="ruby-constant">File</span>.<span class="ruby-identifier">open</span>(<span class="ruby-identifier">filename</span>).<span class="ruby-identifier">each</span> <span class="ruby-keyword kw">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">line</span><span class="ruby-operator">|</span>
+        <span class="ruby-identifier">fields</span> = <span class="ruby-identifier">line</span>.<span class="ruby-identifier">chomp</span>.<span class="ruby-identifier">split</span>(<span class="ruby-regexp re">/\t/</span>)
+        <span class="ruby-identifier">chr</span>, <span class="ruby-identifier">start</span>, <span class="ruby-identifier">stop</span>, <span class="ruby-identifier">value</span> = <span class="ruby-identifier">fields</span>[<span class="ruby-value">0</span>], <span class="ruby-identifier">fields</span>[<span class="ruby-value">3</span>], <span class="ruby-identifier">fields</span>[<span class="ruby-value">4</span>], <span class="ruby-identifier">fields</span>[<span class="ruby-value">5</span>]
+        <span class="ruby-identifier">node_id</span> <span class="ruby-operator">+=</span> <span class="ruby-value">1</span>
+        <span class="ruby-identifier">import_file</span>.<span class="ruby-identifier">puts</span> [<span class="ruby-identifier">node_id</span>, <span class="ruby-identifier">tree_hash</span>[<span class="ruby-identifier">chr</span>].<span class="ruby-identifier">id</span>, <span class="ruby-identifier">level_hash</span>[<span class="ruby-identifier">chr</span>].<span class="ruby-identifier">id</span>, <span class="ruby-identifier">chr</span>, <span class="ruby-identifier">start</span>.<span class="ruby-identifier">to_i</span>, <span class="ruby-identifier">stop</span>.<span class="ruby-identifier">to_i</span>, <span class="ruby-identifier">value</span>.<span class="ruby-identifier">to_f</span>, <span class="ruby-value">1</span>, <span class="ruby-value str">'leaf'</span>, <span class="ruby-value str">''</span>].<span class="ruby-identifier">join</span>(<span class="ruby-value str">'|'</span>)
+      <span class="ruby-keyword kw">end</span>
+      <span class="ruby-identifier">import_file</span>.<span class="ruby-identifier">close</span>
+      <span class="ruby-identifier">system</span> <span class="ruby-node">&quot;sqlite3 -separator '|' #{self.database_file} '.import /tmp/sqlite_import.copy locus_tree_nodes'&quot;</span>
+      <span class="ruby-constant">File</span>.<span class="ruby-identifier">delete</span>(<span class="ruby-value str">'/tmp/sqlite_import.copy'</span>)
+
+      <span class="ruby-comment cmt"># Create the tree on top of those leaf nodes</span>
+      <span class="ruby-keyword kw">self</span>.<span class="ruby-identifier">trees</span>.<span class="ruby-identifier">each</span> <span class="ruby-keyword kw">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">tree</span><span class="ruby-operator">|</span>
+        <span class="ruby-identifier">this_level</span> = <span class="ruby-identifier">level_hash</span>[<span class="ruby-identifier">tree</span>.<span class="ruby-identifier">chromosome</span>]
+        <span class="ruby-identifier">count</span> = <span class="ruby-constant">Node</span>.<span class="ruby-identifier">count</span>(<span class="ruby-identifier">:level_id</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-identifier">this_level</span>.<span class="ruby-identifier">id</span>)
+        <span class="ruby-keyword kw">while</span> <span class="ruby-identifier">count</span> <span class="ruby-operator">&gt;</span> <span class="ruby-value">1</span>
+          <span class="ruby-identifier">next_level</span> = <span class="ruby-constant">LocusTree</span><span class="ruby-operator">::</span><span class="ruby-constant">Level</span>.<span class="ruby-identifier">new</span>
+          <span class="ruby-identifier">next_level</span>.<span class="ruby-identifier">tree_id</span> = <span class="ruby-identifier">tree</span>.<span class="ruby-identifier">id</span>
+          <span class="ruby-identifier">next_level</span>.<span class="ruby-identifier">number</span> = <span class="ruby-identifier">this_level</span>.<span class="ruby-identifier">number</span> <span class="ruby-operator">+</span> <span class="ruby-value">1</span>
+          <span class="ruby-identifier">next_level</span>.<span class="ruby-identifier">save</span>
+          <span class="ruby-identifier">import_file</span> = <span class="ruby-constant">File</span>.<span class="ruby-identifier">new</span>(<span class="ruby-value str">'/tmp/sqlite_import.copy'</span>, <span class="ruby-value str">'w'</span>)
+          <span class="ruby-comment cmt">#TODO: next line is really slow</span>
+          <span class="ruby-identifier">this_level_nodes</span> = <span class="ruby-constant">Node</span>.<span class="ruby-identifier">all</span>(<span class="ruby-identifier">:level_id</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-identifier">this_level</span>.<span class="ruby-identifier">id</span>, <span class="ruby-identifier">:order</span> =<span class="ruby-operator">&gt;</span> [<span class="ruby-identifier">:start</span>])
+          <span class="ruby-identifier">this_level_nodes</span>.<span class="ruby-identifier">each_slice</span>(<span class="ruby-keyword kw">self</span>.<span class="ruby-identifier">max_children</span>) <span class="ruby-keyword kw">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">node_group</span><span class="ruby-operator">|</span>
+            <span class="ruby-identifier">node_id</span> <span class="ruby-operator">+=</span> <span class="ruby-value">1</span>
+            <span class="ruby-identifier">min_pos</span> = <span class="ruby-identifier">node_group</span>.<span class="ruby-identifier">collect</span>{<span class="ruby-operator">|</span><span class="ruby-identifier">n</span><span class="ruby-operator">|</span> <span class="ruby-identifier">n</span>.<span class="ruby-identifier">start</span>}.<span class="ruby-identifier">min</span>
+            <span class="ruby-identifier">max_pos</span> = <span class="ruby-identifier">node_group</span>.<span class="ruby-identifier">collect</span>{<span class="ruby-operator">|</span><span class="ruby-identifier">n</span><span class="ruby-operator">|</span> <span class="ruby-identifier">n</span>.<span class="ruby-identifier">stop</span>}.<span class="ruby-identifier">max</span>
+            <span class="ruby-identifier">nr_leaf_nodes</span> = <span class="ruby-identifier">node_group</span>.<span class="ruby-identifier">inject</span>(<span class="ruby-value">0</span>){<span class="ruby-operator">|</span><span class="ruby-identifier">sum</span>, <span class="ruby-identifier">n</span><span class="ruby-operator">|</span> <span class="ruby-identifier">sum</span> <span class="ruby-operator">+=</span> <span class="ruby-identifier">n</span>.<span class="ruby-identifier">nr_leaf_nodes</span>}
+            <span class="ruby-identifier">value</span> = <span class="ruby-identifier">node_group</span>.<span class="ruby-identifier">inject</span>(<span class="ruby-value">0</span>){<span class="ruby-operator">|</span><span class="ruby-identifier">sum</span>, <span class="ruby-identifier">n</span><span class="ruby-operator">|</span> <span class="ruby-identifier">sum</span> <span class="ruby-operator">+=</span> <span class="ruby-identifier">n</span>.<span class="ruby-identifier">nr_leaf_nodes</span><span class="ruby-operator">*</span><span class="ruby-identifier">n</span>.<span class="ruby-identifier">value</span>}.<span class="ruby-identifier">to_f</span><span class="ruby-operator">/</span><span class="ruby-identifier">nr_leaf_nodes</span>
+            <span class="ruby-identifier">child_ids</span> = <span class="ruby-identifier">node_group</span>.<span class="ruby-identifier">collect</span>{<span class="ruby-operator">|</span><span class="ruby-identifier">n</span><span class="ruby-operator">|</span> <span class="ruby-identifier">n</span>.<span class="ruby-identifier">id</span>}.<span class="ruby-identifier">join</span>(<span class="ruby-value str">','</span>)
+            <span class="ruby-identifier">import_file</span>.<span class="ruby-identifier">puts</span> [<span class="ruby-identifier">node_id</span>, <span class="ruby-identifier">tree</span>.<span class="ruby-identifier">id</span>, <span class="ruby-identifier">next_level</span>.<span class="ruby-identifier">id</span>, <span class="ruby-identifier">node_group</span>[<span class="ruby-value">0</span>].<span class="ruby-identifier">chromosome</span>, <span class="ruby-identifier">min_pos</span>, <span class="ruby-identifier">max_pos</span>, <span class="ruby-identifier">value</span>, <span class="ruby-identifier">nr_leaf_nodes</span>, <span class="ruby-value str">'index'</span>, <span class="ruby-identifier">child_ids</span>].<span class="ruby-identifier">join</span>(<span class="ruby-value str">'|'</span>)
+          <span class="ruby-keyword kw">end</span>
+          <span class="ruby-identifier">import_file</span>.<span class="ruby-identifier">close</span>
+          <span class="ruby-identifier">system</span> <span class="ruby-node">&quot;sqlite3 -separator '|' #{self.database_file} '.import /tmp/sqlite_import.copy locus_tree_nodes'&quot;</span>
+          <span class="ruby-constant">File</span>.<span class="ruby-identifier">delete</span>(<span class="ruby-value str">'/tmp/sqlite_import.copy'</span>)
+
+          <span class="ruby-identifier">this_level</span> = <span class="ruby-identifier">next_level</span>
+          <span class="ruby-identifier">count</span> = <span class="ruby-constant">Node</span>.<span class="ruby-identifier">count</span>(<span class="ruby-identifier">:level_id</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-identifier">this_level</span>.<span class="ruby-identifier">id</span>)
+        <span class="ruby-keyword kw">end</span>
+        <span class="ruby-identifier">tree</span>.<span class="ruby-identifier">depth</span> = <span class="ruby-identifier">this_level</span>.<span class="ruby-identifier">number</span>
+        <span class="ruby-identifier">root_node</span> = <span class="ruby-constant">Node</span>.<span class="ruby-identifier">first</span>(<span class="ruby-identifier">:id</span> =<span class="ruby-operator">&gt;</span> <span class="ruby-identifier">node_id</span>)
+        <span class="ruby-identifier">tree</span>.<span class="ruby-identifier">root_id</span> = <span class="ruby-identifier">root_node</span>.<span class="ruby-identifier">id</span>
+        <span class="ruby-identifier">root_node</span>.<span class="ruby-identifier">type</span> = <span class="ruby-value str">'root'</span>
+        <span class="ruby-identifier">root_node</span>.<span class="ruby-identifier">save</span>
+        <span class="ruby-identifier">tree</span>.<span class="ruby-identifier">save</span>
+      <span class="ruby-keyword kw">end</span>
+    <span class="ruby-keyword kw">end</span></pre>
+</body>
+</html>
