@@ -5,7 +5,7 @@ require File.dirname(__FILE__) + '/../lib/locus_tree.rb'
 
 class BulkLoad < Test::Unit::TestCase
   def setup
-    @locus_tree = LocusTree::Container.new(2,3,File.dirname(__FILE__) + '/rtree.sqlite3')
+    @locus_tree = LocusTree::Container.new(2,3,'average',File.dirname(__FILE__) + '/rtree.sqlite3')
     @locus_tree.bulk_load(File.dirname(__FILE__) + '/data/loci_with_values.gff')
   end
 

@@ -7,16 +7,39 @@ require File.dirname(__FILE__) + '/locus.rb'
 require File.dirname(__FILE__) + '/string.rb'
 
 module LocusTree
+  # == Description
+  #
+  # The LocusTree::Container class represents the object containing the trees
+  # for all chromosomes/contigs/...
   class Container
     include DataMapper::Resource
 
     property :id, Integer, :serial => true
     property :min_children, Integer
     property :max_children, Integer
+    property :aggregation, String
     property :database_file, String
     has n, :trees
 
-    def initialize(min_children, max_children, filename = 'locus_tree.sqlite3')
+    # == Description
+    #
+    # Create a new LocusTree::Container
+    #
+    # == Usage
+    #
+    #   container = LocusTree::Container.new(2,5,'average','index_file.sqlite3')
+    #
+    # ---
+    # *Arguments*:
+    # * _min_children_ (required): minimal number of children before nodes get
+    # merged
+    # * _max_children_ (required): maximal number of children before nodes get
+    # split
+    # * _aggregation_ (optional): how to aggregate data in higher-level nodes.
+    # Options: 'density' or 'average'. (default = 'density')
+    # * _filename_ (optional): name of index file (default = locus_tree.sqlite3)
+    # *Returns*:: LocusTree::Container object
+    def initialize(min_children, max_children, aggregation = 'density', filename = 'locus_tree.sqlite3')
       DataMapper.setup(:default, 'sqlite3:' + filename)
 
       LocusTree::Container.auto_migrate!
@@ -26,15 +49,32 @@ module LocusTree
 
       self.min_children = min_children
       self.max_children = max_children
+      self.aggregation = aggregation
       self.database_file = filename
       self.save
     end
 
+    # == Description
+    #
+    # Loads LocusTree::Container data from an existing index fil
+    #
+    # == Usage
+    #
+    #   container = LocusTree::Container.open('index_file.sqlite3')
+    #
+    # ---
+    # *Arguments*:
+    # * _filename_ (optional): name of index file (default = locus_tree.sqlite3)
+    # *Returns*:: LocusTree::Container object
     def self.open(filename = 'locus_tree.sqlite3')
       DataMapper.setup(:default, 'sqlite3:' + filename)
       return LocusTree::Container.first(:id => 1)
     end
 
+    # == Description
+    #
+    # Creates index file based on GFF file.
+    # 
     # File must be in GFF format, the 4th column ("score") containing the value
     # For example:
     #   chr1	hg18	readdepth	1	    500   8433	.	.	.
@@ -42,7 +82,17 @@ module LocusTree
     #   chr1	hg18	readdepth	1001	1500	400 	.	.	.
     #   chr1	hg18	readdepth	1501	2000	716 	.	.	.
     #   chr1	hg18	readdepth	2001	2500	466 	.	.	.
+    #   
     # CAUTION: File has to be sorted beforehand!!
+    #
+    # == Usage
+    #
+    #   container = LocusTree::Container.bulk_load('raw_data.gff')
+    #
+    # ---
+    # *Arguments*:
+    # * _filename_ (required): name of GFF data file
+    # *Returns*:: LocusTree::Container object
     def bulk_load(filename)
       `cut -f 1 #{filename} | sort | uniq`.each do |chr|
         tree = LocusTree::Tree.new
@@ -95,7 +145,11 @@ module LocusTree
             min_pos = node_group.collect{|n| n.start}.min
             max_pos = node_group.collect{|n| n.stop}.max
             nr_leaf_nodes = node_group.inject(0){|sum, n| sum += n.nr_leaf_nodes}
-            value = node_group.inject(0){|sum, n| sum += n.nr_leaf_nodes*n.value}.to_f/nr_leaf_nodes
+            if self.aggregation == 'density'
+              value = node_group.inject(0){|sum, n| sum += n.nr_leaf_nodes}
+            elsif self.aggregation == 'average'
+              value = node_group.inject(0){|sum, n| sum += n.nr_leaf_nodes*n.value}.to_f/nr_leaf_nodes
+            end
             child_ids = node_group.collect{|n| n.id}.join(',')
             import_file.puts [node_id, tree.id, next_level.id, node_group[0].chromosome, min_pos, max_pos, value, nr_leaf_nodes, 'index', child_ids].join('|')
           end
@@ -115,6 +169,17 @@ module LocusTree
       end
     end
 
+    # == Description
+    #
+    # Prints out the container
+    #
+    # == Usage
+    #
+    #   puts container.to_s
+    #
+    # ---
+    # *Arguments*:: none
+    # *Returns*:: String
     def to_s
       output = Array.new
       self.trees.each do |tree|
@@ -124,11 +189,31 @@ module LocusTree
       return output.join("\n")
     end
 
+    # == Description
+    #
+    # Searches the container for a locus
+    #
+    # == Usage
+    #
+    #   container.search(Locus.new('1', 1, 5000), 1)
+    #
+    # ---
+    # *Arguments*:
+    # * _locus_ (required):: locus to search for. E.g. Locus.new('1', 1, 5000)
+    # * _search_level_ (optional):: level to collect nodes from (default = 0)
+    # * _start_node_ (optional):: node to start search from (default = root node of that chromosome)
+    # *Returns*:: Array of Node objects
     def search(locus, search_level = 0, start_node = self.trees.first(:chromosome => locus.chromosome).root)
       return self.trees.first(:chromosome => locus.chromosome).search(locus, search_level, start_node)
     end
   end
 
+  # == Description
+  #
+  # The LocusTree::Tree class is similar to an R-Tree. It contains a collection
+  # of nodes where the toplevel node covers the whole of a chromosome and the
+  # bottom level nodes (level 0) correspond to single raw datapoints. Different
+  # chromosomes cannot be part of the same tree (see LocusTree::Container).
   class Tree
     include DataMapper::Resource
 
@@ -143,11 +228,35 @@ module LocusTree
 
     attr_accessor :positive_nodes
 
-
+    # == Description
+    #
+    # Returns the root node.
+    #
+    # == Usage
+    #
+    #   tree.root
+    #
+    # ---
+    # *Arguments*:: none
+    # *Returns*:: Node object
     def root
       return Node.first(:id => self.root_id)
     end
 
+    # == Description
+    #
+    # Searches to tree for a locus.
+    #
+    # == Usage
+    #
+    #   tree.search(Locus.new('1', 1, 5000), 1)
+    #
+    # ---
+    # *Arguments*:
+    # * _locus_ (required):: locus to search for. E.g. Locus.new('1', 1, 5000)
+    # * _search_level_ (optional):: level to collect nodes from (default = 0)
+    # * _start_node_ (optional):: node to start search from (default = root node)
+    # *Returns*:: Array of Node objects
     def search(locus, search_level = 0, start_node = self.root)
       if start_node == self.root
         @positive_nodes = Array.new
@@ -171,6 +280,17 @@ module LocusTree
       return @positive_nodes
     end
 
+    # == Description
+    #
+    # Prints out the tree
+    #
+    # == Usage
+    #
+    #   puts tree.to_s
+    #
+    # ---
+    # *Arguments*:: none
+    # *Returns*:: String
     def to_s
       output = Array.new
       output.push self.depth.to_s + "\t" + self.root.locus.to_s + "\t" + self.root.value.to_s
@@ -187,6 +307,11 @@ module LocusTree
     end
   end
 
+  # == Description
+  #
+  # The LocusTree::Level class describes a level in the tree. Level 0 corresponds
+  # to the level of the leaf nodes.
+  #
   class Level
     include DataMapper::Resource
 
@@ -198,6 +323,15 @@ module LocusTree
     has n, :nodes
   end
 
+  # == Description
+  #
+  # The LocusTree::Node class describes a single node of the tree. A node
+  # contains a number of child-nodes (between Container.min_children and
+  # Container.max_children). There are 3 types of nodes: (1) leaf-nodes are
+  # at the raw data-level, (2) index nodes are nodes that contain other nodes,
+  # and the (3) root node is the index node at the top of the tree, which is
+  # not contained in any other node.
+  #
   class Node
     include DataMapper::Resource
 
@@ -217,6 +351,17 @@ module LocusTree
     attr_accessor :locus
     attr_accessor :children
 
+    # == Description
+    #
+    # Returns the locus covered by this node.
+    #
+    # == Usage
+    #
+    #   node.locus
+    #
+    # ---
+    # *Arguments*:: none
+    # *Returns*:: Locus object
     def locus
       if @locus.nil?
         @locus = Locus.new(self.chromosome, self.start, self.stop)
@@ -224,6 +369,17 @@ module LocusTree
       return @locus
     end
 
+    # == Description
+    #
+    # Returns the children of this node.
+    #
+    # == Usage
+    #
+    #   node.children
+    #
+    # ---
+    # *Arguments*:: none
+    # *Returns*:: Array of Node objects
     def children
       if @children.nil?
         @children = Array.new
@@ -234,10 +390,32 @@ module LocusTree
       return @children
     end
 
+    # == Description
+    #
+    # Split a node.
+    #
+    # == Usage
+    #
+    #   new_nodes = node.split
+    #
+    # ---
+    # *Arguments*:: none
+    # *Returns*:: Array of Node objects
     def split
       raise NotImplementedError
     end
 
+    # == Description
+    #
+    # Merges two nodes.
+    #
+    # == Usage
+    #
+    #   merged_node = node_a.merge(node_b)
+    #
+    # ---
+    # *Arguments*:: Node object
+    # *Returns*:: Node object
     def merge(other_node)
       raise NotImplementedError
     end
