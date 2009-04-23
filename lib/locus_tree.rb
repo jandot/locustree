@@ -295,11 +295,11 @@ module LocusTree
       output = Array.new
       output.push self.depth.to_s + "\t" + self.root.locus.to_s + "\t" + self.root.value.to_s
       self.root.children.each do |node|
-        output.push "\t" + node.level.to_s + "\t" + node.locus.to_s + "\t" + node.value.to_s
+        output.push "\t" + node.level.number.to_s + "\t" + node.locus.to_s + "\t" + node.value.to_s
         node.children.each do |subnode|
-          output.push "\t\t" + subnode.level.to_s + "\t" + subnode.locus.to_s + "\t" + subnode.value.to_s
+          output.push "\t\t" + subnode.level.number.to_s + "\t" + subnode.locus.to_s + "\t" + subnode.value.to_s
           subnode.children.each do |subsubnode|
-            output.push "\t\t\t" + subsubnode.level.to_s + "\t" + subsubnode.locus.to_s + "\t" + subsubnode.value.to_s
+            output.push "\t\t\t" + subsubnode.level.number.to_s + "\t" + subsubnode.locus.to_s + "\t" + subsubnode.value.to_s
           end
         end
       end
@@ -420,4 +420,10 @@ module LocusTree
       raise NotImplementedError
     end
   end
+end
+
+if __FILE__ == $0
+  @container = LocusTree::Container.new(2,3)
+  @container.bulk_load('../test/data/loci_with_values.gff')
+  puts @container.to_s
 end
