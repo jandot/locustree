@@ -14,37 +14,30 @@ module LocusTree
     property :id, Integer, :serial => true
 #    property :tree_id, Integer
     property :level_id, Integer
-#    property :chromosome, String
+    property :chromosome, String
     property :start, Integer
     property :stop, Integer
     property :value, Float
-    property :parent_node_id, Integer
-    property :nr_leaf_nodes, Integer
-#    property :type, String #is root, index or leaf
-#    property :child_ids, String #1,2,3,4,5
-#    belongs_to :tree
+    property :child_ids, String
     belongs_to :level
 
-    attr_accessor :locus
-    attr_accessor :children
-
-    # == Description
-    #
-    # Returns the locus covered by this node.
-    #
-    # == Usage
-    #
-    #   node.locus
-    #
-    # ---
-    # *Arguments*:: none
-    # *Returns*:: Locus object
-    def locus
-      if @locus.nil?
-        @locus = Locus.new(self.chromosome, self.start, self.stop)
-      end
-      return @locus
-    end
+#    # == Description
+#    #
+#    # Returns the locus covered by this node.
+#    #
+#    # == Usage
+#    #
+#    #   node.locus
+#    #
+#    # ---
+#    # *Arguments*:: none
+#    # *Returns*:: Locus object
+#    def locus
+#      if @locus.nil?
+#        @locus = Locus.new(self.chromosome, self.start, self.stop)
+#      end
+#      return @locus
+#    end
 
     # == Description
     #
@@ -67,34 +60,8 @@ module LocusTree
       return @children
     end
 
-    # == Description
-    #
-    # Split a node.
-    #
-    # == Usage
-    #
-    #   new_nodes = node.split
-    #
-    # ---
-    # *Arguments*:: none
-    # *Returns*:: Array of Node objects
-    def split
-      raise NotImplementedError
-    end
-
-    # == Description
-    #
-    # Merges two nodes.
-    #
-    # == Usage
-    #
-    #   merged_node = node_a.merge(node_b)
-    #
-    # ---
-    # *Arguments*:: Node object
-    # *Returns*:: Node object
-    def merge(other_node)
-      raise NotImplementedError
+    def to_s
+      return self.chromosome + ':' + self.start.to_s + '..' + self.stop.to_s
     end
   end
 end
