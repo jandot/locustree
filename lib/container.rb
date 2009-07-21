@@ -151,15 +151,18 @@ module LocusTree
       end
     end
 
-    def query(chromosome, start, stop, resolution = 5)
+    def query(chromosome, start, stop, level_number = 1)
       search_range = Range.new(start, stop)
       tree = self.trees.select{|t| t.chromosome == chromosome}[0]
-      max_resolution = tree.levels.sort_by{|l| l.resolution}[0].resolution
+      max_level = tree.levels.sort_by{|l| l.number}[-1].number
+      STDERR.puts "max level: " + max_level.to_s
       target_level = nil
-      if resolution < max_resolution
-        target_level = tree.levels.sort_by{|l| l.resolution}[0]
+      if level_number > max_level
+        target_level = tree.levels.sort_by{|l| l.number}[-1]
+        STDERR.puts "Level_number bigger than max_level. Target_level now " + target_level.number.to_s
       else
-        target_level = tree.levels.select{|l| l.resolution >= resolution}.sort_by{|l| l.resolution}[-1]
+        target_level = tree.levels.select{|l| l.number >= level_number}.sort_by{|l| l.number}[0]
+        STDERR.puts "Target_level is " + target_level.number.to_s
       end
       
       level = tree.top_level
