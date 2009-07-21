@@ -121,7 +121,7 @@ module LocusTree
           level.resolution = ((parent_level.resolution.to_f/bin_size).floor + 1)
           level.save
 
-          import_file = File.new('/tmp/sqlite_import.copy', 'w')
+          import_lines = Array.new
           parent_level.nodes.each do |parent_node|
 #            puts "\t\tparent node: " + [parent_node.start, parent_node.stop].join('-')
             parent_node.child_ids = ''
@@ -135,13 +135,15 @@ module LocusTree
 #              node.level_id = level.id
 #              node.save
               stop = [start + level.resolution - 1, parent_node.stop].min
-              import_file.puts [node_id, level.id, tree.chromosome, start, stop, nil, nil].join('|')
+              import_lines.push [node_id, level.id, tree.chromosome, start, stop, nil, nil].join('|')
               parent_node.child_ids += node_id.to_s + ','
               start = stop + 1
             end
             parent_node.child_ids.sub!(/,$/, '')
             parent_node.save
           end
+          import_file = File.new('/tmp/sqlite_import.copy', 'w')
+          import_file.puts import_lines.join("\n")
           import_file.close
           system "sqlite3 -separator '|' #{self.database_file} '.import /tmp/sqlite_import.copy locus_tree_nodes'"
           File.delete('/tmp/sqlite_import.copy')
