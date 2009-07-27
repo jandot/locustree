@@ -43,23 +43,6 @@ module LocusTree
       self.create_structure(nr_children)
     end
 
-#    # == Description
-#    #
-#    # Loads LocusTree::Container data from an existing index fil
-#    #
-#    # == Usage
-#    #
-#    #   container = LocusTree::Container.open('index_file.sqlite3')
-#    #
-#    # ---
-#    # *Arguments*:
-#    # * _filename_ (optional): name of index file (default = locus_tree.sqlite3)
-#    # *Returns*:: LocusTree::Container object
-#    def self.open(filename = 'locus_tree.sqlite3')
-#      DataMapper.setup(:default, 'sqlite3:' + filename)
-#      return LocusTree::Container.first(:id => 1)
-#    end
-
     # == Description
     #
     # Attaches a predefined structure to the container.
@@ -223,6 +206,35 @@ module LocusTree
       end
 
       return positive_nodes_at_level
+    end
+
+    def query_single_bin(chromosome, start, stop)
+      search_range = Range.new(start, stop)
+      tree = self.trees.select{|t| t.chromosome == chromosome}[0]
+
+      level = tree.top_level
+      nodes_to_check = LocusTree::Node.all(:level_id => level.id)
+      answer = Array.new
+      while nodes_to_check.length == 1
+        answer = nodes_to_check
+        positive_nodes_at_level = Array.new
+        nodes_to_check.each do |node|
+          child_ids = node.child_ids.split(/,/)
+          child_nodes = Array.new
+          child_ids.each do |id|
+            child_nodes.push(LocusTree::Node.get!(id))
+          end
+          child_nodes.each do |child_node|
+            if Range.new(child_node.start, child_node.stop).overlaps?(search_range)
+              positive_nodes_at_level.push(child_node)
+            end
+          end
+        end
+        level = tree.levels.select{|l| l.number == level.number - 1}[0]
+        nodes_to_check = positive_nodes_at_level
+      end
+
+      return answer[0]
     end
 
     # == Description
