@@ -10,7 +10,6 @@ module LocusTree
     property :id, Integer, :serial => true
     property :tree_id, Integer
     property :number, Integer
-    property :nr_nodes, Integer
     property :resolution, Integer # in bp/node
 
     belongs_to :tree

@@ -15,7 +15,7 @@ module LocusTree
     has n, :levels
 
     def top_level
-      return self.levels.select{|l| l.number == 0}[0]
+      return self.levels.sort_by{|l| l.number}[-1]
     end
 
 #    # == Description

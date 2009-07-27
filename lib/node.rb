@@ -11,14 +11,13 @@ module LocusTree
   class Node
     include DataMapper::Resource
 
-    property :id, Integer, :serial => true
-#    property :tree_id, Integer
+    property :id, String, :key => true #:serial => true
     property :level_id, Integer
-    property :chromosome, String
     property :start, Integer
     property :stop, Integer
     property :value, Float
     property :child_ids, String
+
     belongs_to :level
 
 #    # == Description
@@ -61,7 +60,7 @@ module LocusTree
     end
 
     def to_s
-      return self.chromosome + ':' + self.start.to_s + '..' + self.stop.to_s
+      return self.level.tree.chromosome + ':' + self.start.to_s + '..' + self.stop.to_s
     end
   end
 end
