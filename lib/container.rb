@@ -154,6 +154,8 @@ module LocusTree
             end
             import_file.puts [[chr_number, this_level.number, node_id].join('.'), this_level.id, prev_stop + 1, CHROMOSOME_LENGTHS[chr_number], '', child_id_array.join(',')].join('|')
           end
+          import_file = File.new('/tmp/sqlite_import.copy', 'w')
+          import_file.puts import_lines.join("\n")
           import_file.close
           system "sqlite3 -separator '|' #{self.database_file} '.import /tmp/locus_tree_#{chr_number}_#{this_level.number.to_s}.copy locus_tree_nodes'"
 
