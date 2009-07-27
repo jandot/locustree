@@ -1,6 +1,7 @@
 require 'enumerator'
 require 'dm-core'
 require 'dm-aggregates'
+require 'progressbar'
 
 require File.dirname(__FILE__) + '/range.rb'
 require File.dirname(__FILE__) + '/locus.rb'
@@ -39,10 +40,23 @@ CHROMOSOME_LENGTHS = {'1' => 247249719,
 
 if __FILE__ == $0
 #  @container = LocusTree::Container.new(1000)
-
   @container = LocusTree::Container.load_structure('locus_tree.sqlite3')
 
-  positive_nodes = @container.query('24', 500, 50_000, 1)
+  pbar = ProgressBar.new('features', 36653)
+  File.open('genes.txt').each do |line|
+    pbar.inc
+    name, chr, start, stop = line.chomp.split(/\t/)
+    feature = LocusTree::Feature.new
+    feature.chr = chr
+    feature.start = start.to_i
+    feature.stop = stop.to_i
+    node = @container.query_single_bin(chr, start.to_i, stop.to_i)
+    feature.node_id = node.id
+    feature.save
+  end
+  pbar.finish
+
+  positive_nodes = @container.query('24', 500, 50_000, 999999)
   positive_nodes.each do |node|
     puts node.to_s
   end

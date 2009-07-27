@@ -138,7 +138,6 @@ module LocusTree
             import_file.puts [[chr_number, this_level.number, node_id].join('.'), this_level.id, prev_stop + 1, CHROMOSOME_LENGTHS[chr_number], '', child_id_array.join(',')].join('|')
           end
           import_file = File.new('/tmp/sqlite_import.copy', 'w')
-          import_file.puts import_lines.join("\n")
           import_file.close
           system "sqlite3 -separator '|' #{self.database_file} '.import /tmp/locus_tree_#{chr_number}_#{this_level.number.to_s}.copy locus_tree_nodes'"
 
@@ -162,7 +161,6 @@ module LocusTree
           child_id_array.push(chr_number + '.' + previous_level.number.to_s + '.' + child_id.to_s)
         end
         import_file.puts [[chr_number, this_level.number, node_id].join('.'), this_level.id, 1, CHROMOSOME_LENGTHS[chr_number], '', child_id_array.join(',')].join('|')
-
         import_file.close
         system "sqlite3 -separator '|' #{self.database_file} '.import /tmp/locus_tree_#{chr_number}_#{this_level.number.to_s}.copy locus_tree_nodes'"
       end
@@ -186,18 +184,17 @@ module LocusTree
       until level.number == target_level.number
         positive_nodes_at_level = Array.new
         nodes_to_check.each do |node|
-          child_ids = node.child_ids.split(/,/)
-          child_nodes = Array.new
-          child_ids.each do |id|
-            child_nodes.push(LocusTree::Node.get!(id))
-          end
+#          child_nodes = node.children
+          child_nodes = node.children_in_range(start, stop)
           if node.start >= start and node.stop <= stop
             positive_nodes_at_level.push(child_nodes)
           else
-            child_nodes.each do |child_node|
+            child_nodes.sort_by{|n| n.start}.each do |child_node|
+              next if child_node.stop < start
               if Range.new(child_node.start, child_node.stop).overlaps?(search_range)
                 positive_nodes_at_level.push(child_node)
               end
+              break if child_node.start > stop
             end
           end
         end
@@ -209,31 +206,28 @@ module LocusTree
     end
 
     def query_single_bin(chromosome, start, stop)
-      search_range = Range.new(start, stop)
       tree = self.trees.select{|t| t.chromosome == chromosome}[0]
-
+      
       level = tree.top_level
-      nodes_to_check = LocusTree::Node.all(:level_id => level.id)
+      nodes_to_check = LocusTree::Node.all(:id => [chromosome, level.number, 1].join('.'))
       answer = Array.new
-      while nodes_to_check.length == 1
+      while nodes_to_check.length == 1 and level.number >= 2
         answer = nodes_to_check
         positive_nodes_at_level = Array.new
         nodes_to_check.each do |node|
-          child_ids = node.child_ids.split(/,/)
-          child_nodes = Array.new
-          child_ids.each do |id|
-            child_nodes.push(LocusTree::Node.get!(id))
-          end
-          child_nodes.each do |child_node|
-            if Range.new(child_node.start, child_node.stop).overlaps?(search_range)
+#          child_nodes = node.children
+          child_nodes = node.children_in_range(start, stop)
+          child_nodes.sort_by{|n| n.start}.each do |child_node|
+            next if child_node.stop < start
+            if child_node.start <= start and child_node.stop >= stop #Range.new(child_node.start, child_node.stop).overlaps?(search_range)
               positive_nodes_at_level.push(child_node)
             end
+            break if child_node.start > stop
           end
         end
         level = tree.levels.select{|l| l.number == level.number - 1}[0]
         nodes_to_check = positive_nodes_at_level
       end
-
       return answer[0]
     end
 

@@ -38,6 +38,14 @@ module LocusTree
 #      return @locus
 #    end
 
+    def children
+      answer = Array.new
+      self.child_ids.split(/,/).each do |child_id|
+        answer.push(self.class.first(:id => child_id))
+      end
+      return answer
+    end
+
     # == Description
     #
     # Returns the children of this node.
@@ -49,14 +57,19 @@ module LocusTree
     # ---
     # *Arguments*:: none
     # *Returns*:: Array of Node objects
-    def children
-      if @children.nil?
-        @children = Array.new
-        self.child_ids.split(/,/).each do |child_id|
-          @children.push(self.class.first(:id => child_id))
-        end
+    def children_in_range(start, stop)
+      chr = self.level.tree.chromosome
+      level_nr = self.level.number - 1
+
+      bin_size = self.level.tree.container.nr_children
+      answer = Array.new
+      first_node_nr = start.divmod(bin_size**(level_nr))[0] + 1
+      last_node_nr = stop.divmod(bin_size**(level_nr))[0] + 1
+
+      (first_node_nr..last_node_nr).each do |nr|
+        answer.push(self.class.first(:id => [chr, level_nr, nr].join('.')))
       end
-      return @children
+      return answer
     end
 
     def to_s
