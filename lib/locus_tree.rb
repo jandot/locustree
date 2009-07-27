@@ -2,6 +2,7 @@ require 'enumerator'
 require 'dm-core'
 require 'dm-aggregates'
 require 'progressbar'
+require 'logger'
 
 require File.dirname(__FILE__) + '/range.rb'
 require File.dirname(__FILE__) + '/locus.rb'
@@ -39,9 +40,22 @@ CHROMOSOME_LENGTHS = {'1' => 247249719,
                      }
 
 if __FILE__ == $0
-#  @container = LocusTree::Container.new(1000)
-  @container = LocusTree::Container.load_structure('locus_tree.sqlite3')
+  logger = Logger.new('logger.txt')
+  logger.level = Logger::INFO
 
+  logger.info "Creating structure"
+  @container = LocusTree::Container.new(1000)
+#  @container = LocusTree::Container.load_structure('locus_tree.sqlite3')
+
+  logger.info "Creating indexes"
+  system("sqlite3 locus_tree.sqlite3 'CREATE INDEX ind_level_id ON locus_tree_levels(id)'")
+  system("sqlite3 locus_tree.sqlite3 'CREATE INDEX ind_level_tree ON locus_tree_levels(tree_id)'")
+  system("sqlite3 locus_tree.sqlite3 'CREATE INDEX ind_node_id ON locus_tree_nodes(id)'")
+  system("sqlite3 locus_tree.sqlite3 'CREATE INDEX ind_node_level ON locus_tree_nodes(level_id)'")
+  system("sqlite3 locus_tree.sqlite3 'CREATE INDEX ind_node_start ON locus_tree_nodes(start)'")
+  system("sqlite3 locus_tree.sqlite3 'CREATE INDEX ind_node_stop ON locus_tree_nodes(stop)'")
+
+  logger.info "Loading features"
   pbar = ProgressBar.new('features', 36653)
   File.open('genes.txt').each do |line|
     pbar.inc
@@ -56,12 +70,20 @@ if __FILE__ == $0
   end
   pbar.finish
 
-  positive_nodes = @container.query('24', 500, 50_000, 999999)
-  positive_nodes.each do |node|
-    puts node.to_s
-  end
+  logger.info "Creating indexes on features"
+  system("sqlite3 locus_tree.sqlite3 'CREATE INDEX ind_feature_id ON locus_tree_features(id)'")
+  system("sqlite3 locus_tree.sqlite3 'CREATE INDEX ind_feature_node ON locus_tree_features(node_id)'")
 
-  puts @container.query_single_bin('24', 500, 50_000).to_s
-  puts @container.query_single_bin('24', 49_050, 49_500).to_s
-  puts @container.query_single_bin('24', 999999, 1000002).to_s
+  logger.info "Aggregating features"
+#  @container.aggregate
+#
+  logger.info "Fetching stuff"
+#  positive_nodes = @container.query('1', 500, 100_000_000, 1000001)
+#  positive_nodes.each do |node|
+#    puts node.to_s + "\t" + node.value.to_s
+#  end
+#
+#  puts @container.query_single_bin('24', 500, 50_000).to_s
+#  puts @container.query_single_bin('24', 49_050, 49_500).to_s
+#  puts @container.query_single_bin('24', 999999, 1000002).to_s
 end
