@@ -18,6 +18,13 @@ module LocusTree
       return self.levels.sort_by{|l| l.number}[-1]
     end
 
+    def aggregate
+      self.levels.sort_by{|l| l.number}.each do |level|
+        STDERR.puts "  Level: " + level.number.to_s
+        level.aggregate
+      end
+    end
+
 #    # == Description
 #    #
 #    # Returns the root node.

@@ -19,6 +19,7 @@ module LocusTree
     property :child_ids, String
 
     belongs_to :level
+    has n, :features
 
 #    # == Description
 #    #
@@ -74,6 +75,18 @@ module LocusTree
 
     def to_s
       return self.level.tree.chromosome + ':' + self.start.to_s + '..' + self.stop.to_s
+    end
+
+    def aggregate
+      count = 0
+      unless self.level.number == 1
+        self.children.each do |child|
+          count += child.value
+        end
+      end
+      count += LocusTree::Feature.count(:node_id => self.id)
+      self.value = count
+      self.save
     end
   end
 end
