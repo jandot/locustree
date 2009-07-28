@@ -25,7 +25,7 @@ module LocusTree
     # Options: 'density' or 'average'. (default = 'density')
     # * _filename_ (optional): name of index file (default = locus_tree.sqlite3)
     # *Returns*:: LocusTree::Container object
-    def initialize(nr_children, filename = 'locus_tree.sqlite3')
+    def initialize(nr_children, filename = 'locus_tree.sqlite3', feature_file = nil)
       DataMapper.setup(:default, 'sqlite3:' + filename)
 
       LocusTree::Container.auto_migrate!
@@ -38,7 +38,11 @@ module LocusTree
       self.database_file = filename
       self.save
 
-      self.create_structure(nr_children)
+      if feature_file.nil?
+        self.create_structure(nr_children)
+      else
+        self.create_structure_based_on_features(feature_file)
+      end
     end
 
     # == Description
@@ -82,7 +86,7 @@ module LocusTree
         level.number = 1
         level.save
 
-        node_ids_in_level = Array.new
+#        node_ids_in_level = Array.new
         # Create the bottom nodes
         nr_nodes, rest = CHROMOSOME_LENGTHS[chr_number].divmod(bin_size)
         import_file = File.new('/tmp/locus_tree_' + chr_number + '_' + level.number.to_s + '.copy', 'w')
@@ -90,17 +94,17 @@ module LocusTree
         nr_nodes.times do |nr|
           pbar.inc
           node_id += 1
-          node_ids_in_level.push([chr_number, level.number, node_id].join('.'))
+#          node_ids_in_level.push([chr_number, level.number, node_id].join('.'))
           import_file.puts [[chr_number, level.number, node_id].join('.'), level.id, nr*bin_size + 1, nr*bin_size + bin_size, '', ''].join('|')
         end
         pbar.finish
         unless rest == 0
           node_id += 1
-          node_ids_in_level.push([chr_number, level.number, node_id].join('.'))
+#          node_ids_in_level.push([chr_number, level.number, node_id].join('.'))
           import_file.puts [[chr_number, level.number, node_id].join('.'), level.id, nr_nodes*bin_size + 1, CHROMOSOME_LENGTHS[chr_number], '', ''].join('|')
         end
-        level.node_ids = [node_ids_in_level[0].sub(/\d+\.\d+\./, ''), node_ids_in_level[-1].sub(/\d+\.\d+\./, '')].join('-')
-        level.save
+#        level.node_ids = [node_ids_in_level[0].sub(/\d+\.\d+\./, ''), node_ids_in_level[-1].sub(/\d+\.\d+\./, '')].join('-')
+#        level.save
         import_file.close
         system "sqlite3 -separator '|' #{self.database_file} '.import /tmp/locus_tree_#{chr_number}_#{level.number.to_s}.copy locus_tree_nodes'"
         
@@ -118,14 +122,14 @@ module LocusTree
 
           import_file = File.new('/tmp/locus_tree_' + chr_number + '_' + this_level.number.to_s + '.copy', 'w')
 
-          node_ids_in_level = Array.new
+#          node_ids_in_level = Array.new
           nr_nodes, rest = LocusTree::Node.count(:level_id => previous_level.id).divmod(bin_size)
           prev_stop = 0
           pbar = ProgressBar.new([chr_number, this_level.number].join('.'), nr_nodes)
           nr_nodes.times do |nr|
             pbar.inc
             node_id += 1
-            node_ids_in_level.push([chr_number, this_level.number, node_id].join('.'))
+#            node_ids_in_level.push([chr_number, this_level.number, node_id].join('.'))
             child_id_array = Array.new
             bin_size.times do |n|
               child_id = bin_size*(node_id-1) + n + 1
@@ -138,7 +142,7 @@ module LocusTree
           pbar.finish
           unless rest == 0
             node_id += 1
-            node_ids_in_level.push([chr_number, this_level.number, node_id].join('.'))
+#            node_ids_in_level.push([chr_number, this_level.number, node_id].join('.'))
             child_id_array = Array.new
             rest.times do |n|
               child_id = bin_size*(node_id-1) + n + 1
@@ -147,8 +151,8 @@ module LocusTree
             child_ids = [child_id_array[0].sub(/\d+\.\d+\./, ''), child_id_array[-1].sub(/\d+\.\d+\./, '')].join('-')
             import_file.puts [[chr_number, this_level.number, node_id].join('.'), this_level.id, prev_stop + 1, CHROMOSOME_LENGTHS[chr_number], '', child_ids].join('|')
           end
-          this_level.node_ids = [child_id_array[0].sub(/\d+\.\d+\./, ''), child_id_array[-1].sub(/\d+\.\d+\./, '')].join('-')
-          this_level.save
+#          this_level.node_ids = [child_id_array[0].sub(/\d+\.\d+\./, ''), child_id_array[-1].sub(/\d+\.\d+\./, '')].join('-')
+#          this_level.save
           import_file.close
           system "sqlite3 -separator '|' #{self.database_file} '.import /tmp/locus_tree_#{chr_number}_#{this_level.number.to_s}.copy locus_tree_nodes'"
 
@@ -165,21 +169,100 @@ module LocusTree
         import_file = File.new('/tmp/locus_tree_' + chr_number + '_' + this_level.number.to_s + '.copy', 'w')
 
         node_id = 1
-        node_ids_in_level = Array.new
+#        node_ids_in_level = Array.new
         nr_nodes, rest = LocusTree::Node.count(:level_id => previous_level.id).divmod(bin_size)
         child_id_array = Array.new
         rest.times do |n|
           child_id = bin_size*(node_id-1) + n + 1
-          node_ids_in_level.push([chr_number, this_level.number, node_id].join('.'))
+#          node_ids_in_level.push([chr_number, this_level.number, node_id].join('.'))
           child_id_array.push(chr_number + '.' + previous_level.number.to_s + '.' + child_id.to_s)
         end
-        this_level.node_ids = [child_id_array[0].sub(/\d+\.\d+\./, ''), child_id_array[-1].sub(/\d+\.\d+\./, '')].join('-')
-        this_level.save
+#        this_level.node_ids = [child_id_array[0].sub(/\d+\.\d+\./, ''), child_id_array[-1].sub(/\d+\.\d+\./, '')].join('-')
+#        this_level.save
         child_ids = [child_id_array[0].sub(/\d+\.\d+\./, ''), child_id_array[-1].sub(/\d+\.\d+\./, '')].join('-')
         import_file.puts [[chr_number, this_level.number, node_id].join('.'), this_level.id, 1, CHROMOSOME_LENGTHS[chr_number], '', child_ids].join('|')
         import_file.close
         system "sqlite3 -separator '|' #{self.database_file} '.import /tmp/locus_tree_#{chr_number}_#{this_level.number.to_s}.copy locus_tree_nodes'"
       end
+    end
+
+    def create_structure_based_on_features(feature_file)
+      tree_cache = Hash.new #key = chr name; value = tree object
+      level_cache = Hash.new #key = chr.level_nr; value = level object
+      node_cache = Hash.new #key = node id; value = node object
+      CHROMOSOME_LENGTHS.keys.each do |chr_number|
+        tree = LocusTree::Tree.new
+        tree.container_id = self.id
+        tree.chromosome = chr_number
+        tree.max_level = (Math.log(CHROMOSOME_LENGTHS[chr_number]).to_f/Math.log(self.nr_children)).floor + 1
+        tree.save
+        tree_cache[chr_number] = tree
+      end
+
+      pbar = ProgressBar.new('loading', 36653)
+      File.open(feature_file).each do |line|
+        pbar.inc
+        name, chr, start, stop = line.chomp.split(/\t/)
+        start = start.to_i
+        stop = stop.to_i
+        level_nr = 1
+        until (start-1).div(self.nr_children**level_nr) == (stop-1).div(self.nr_children**level_nr)
+          level_nr += 1
+        end
+        node_id = [chr, level_nr, (start-1).div(self.nr_children**level_nr)].join('.')
+        level = level_cache[chr + '.' + level_nr.to_s]
+        if level.nil?
+          level = LocusTree::Level.new
+          level.tree_id = tree_cache[chr].id
+          level.resolution = self.nr_children**level_nr
+          level.number = level_nr
+          level.save
+          level_cache[chr + '.' + level_nr.to_s] = level
+        end
+        node = node_cache[node_id]
+        if node.nil?
+          node = LocusTree::Node.new
+          node.id = node_id
+          node.level_id = level.id
+          node.start = ((start-1).div(self.nr_children**level_nr))*(self.nr_children**level_nr) + 1
+          node.stop = node.start + (self.nr_children**level_nr) - 1
+          node.save
+          node_cache[node_id] = node
+        end
+
+        feature = LocusTree::Feature.new
+        feature.chr = chr
+        feature.start = start.to_i
+        feature.stop = stop.to_i
+        feature.node_id = node_id
+        feature.save
+
+        tree = tree_cache[chr]
+        while level_nr < tree.max_level
+          level_nr += 1
+          level = level_cache[chr + '.' + level_nr.to_s]
+          if level.nil?
+            level = LocusTree::Level.new
+            level.tree_id = tree_cache[chr].id
+            level.resolution = self.nr_children**level_nr
+            level.number = level_nr
+            level.save
+            level_cache[chr + '.' + level_nr.to_s] = level
+          end
+          node_id = [chr, level_nr, (start-1).div(self.nr_children**level_nr)].join('.')
+          node = node_cache[node_id]
+          if node.nil?
+            node = LocusTree::Node.new
+            node.id = node_id
+            node.level_id = level.id
+            node.start = ((start-1).div(self.nr_children**level_nr))*(self.nr_children**level_nr) + 1
+            node.stop = node.start + (self.nr_children**level_nr) - 1
+            node.save
+            node_cache[node_id] = node
+          end
+        end
+      end
+      pbar.finish
     end
     
     def query(chromosome, start, stop, resolution)
@@ -196,21 +279,25 @@ module LocusTree
       end
       
       level = tree.top_level
-      nodes_to_check = LocusTree::Node.all(:level_id => level.id)
+      nodes_to_check = LocusTree::Node.all(:id => [tree.chromosome, tree.max_level, 0].join('.'))
       until level.number == target_level.number
+        STDERR.puts "level number: " + level.number.to_s
         positive_nodes_at_level = Array.new
         nodes_to_check.each do |node|
-#          child_nodes = node.children
+          STDERR.puts "  checking node: " + node.to_s
           child_nodes = node.children_in_range(start, stop)
+          STDERR.puts "    nr of child nodes: " + child_nodes.length.to_s
           if node.start >= start and node.stop <= stop
             positive_nodes_at_level.push(child_nodes)
           else
-            child_nodes.sort_by{|n| n.start}.each do |child_node|
-              next if child_node.stop < start
-              if Range.new(child_node.start, child_node.stop).overlaps?(search_range)
-                positive_nodes_at_level.push(child_node)
+            unless child_nodes.length == 0
+              child_nodes.sort_by{|n| n.start}.each do |child_node|
+                next if child_node.stop < start
+                if Range.new(child_node.start, child_node.stop).overlaps?(search_range)
+                  positive_nodes_at_level.push(child_node)
+                end
+                break if child_node.start > stop
               end
-              break if child_node.start > stop
             end
           end
         end

@@ -8,10 +8,9 @@ module LocusTree
     include DataMapper::Resource
 
     property :id, Integer, :serial => true
-    property :tree_id, Integer
+    property :tree_id, Integer, :index => true
     property :number, Integer
     property :resolution, Integer # in bp/node
-    property :node_ids, String
 
     belongs_to :tree
 

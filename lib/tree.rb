@@ -11,6 +11,7 @@ module LocusTree
     property :id, Integer, :serial => true
     property :container_id, Integer
     property :chromosome, String
+    property :max_level, Integer
     belongs_to :container
     has n, :levels
 
