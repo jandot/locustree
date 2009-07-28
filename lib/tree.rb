@@ -20,7 +20,6 @@ module LocusTree
 
     def aggregate
       self.levels.sort_by{|l| l.number}.each do |level|
-        STDERR.puts "  Level: " + level.number.to_s
         level.aggregate
       end
     end

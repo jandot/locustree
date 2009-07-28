@@ -22,10 +22,8 @@ module LocusTree
 
     def aggregate
       nr = LocusTree::Node.count(:level_id => self.id)
-      STDERR.puts "Got nr: " + nr.to_s
-      pbar = ProgressBar.new(self.number.to_s, nr)
+      pbar = ProgressBar.new(self.tree.chromosome + '.' + self.number.to_s, nr)
       nodes = self.nodes
-      STDERR.puts "Got #{nodes.length.to_s} nodes"
       nodes.each do |node|
         pbar.inc
         node.aggregate

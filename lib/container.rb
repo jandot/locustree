@@ -8,7 +8,6 @@ module LocusTree
 
     property :id, Integer, :serial => true
     property :nr_children, Integer
-    property :aggregation, String
     property :database_file, String
     has n, :trees
 
@@ -23,11 +22,10 @@ module LocusTree
     # ---
     # *Arguments*:
     # * _nr_children_ (required): number of children for each node
-    # * _aggregation_ (optional): how to aggregate data in higher-level nodes.
     # Options: 'density' or 'average'. (default = 'density')
     # * _filename_ (optional): name of index file (default = locus_tree.sqlite3)
     # *Returns*:: LocusTree::Container object
-    def initialize(nr_children, aggregation = 'density', filename = 'locus_tree.sqlite3')
+    def initialize(nr_children, filename = 'locus_tree.sqlite3')
       DataMapper.setup(:default, 'sqlite3:' + filename)
 
       LocusTree::Container.auto_migrate!
@@ -37,7 +35,6 @@ module LocusTree
       LocusTree::Feature.auto_migrate!
 
       self.nr_children = nr_children
-      self.aggregation = aggregation
       self.database_file = filename
       self.save
 
@@ -102,7 +99,7 @@ module LocusTree
           node_ids_in_level.push([chr_number, level.number, node_id].join('.'))
           import_file.puts [[chr_number, level.number, node_id].join('.'), level.id, nr_nodes*bin_size + 1, CHROMOSOME_LENGTHS[chr_number], '', ''].join('|')
         end
-        level.node_ids = node_ids_in_level.join(',')
+        level.node_ids = [node_ids_in_level[0].sub(/\d+\.\d+\./, ''), node_ids_in_level[-1].sub(/\d+\.\d+\./, '')].join('-')
         level.save
         import_file.close
         system "sqlite3 -separator '|' #{self.database_file} '.import /tmp/locus_tree_#{chr_number}_#{level.number.to_s}.copy locus_tree_nodes'"
@@ -134,7 +131,8 @@ module LocusTree
               child_id = bin_size*(node_id-1) + n + 1
               child_id_array.push(chr_number + '.' + previous_level.number.to_s + '.' + child_id.to_s)
             end
-            import_file.puts [[chr_number, this_level.number, node_id].join('.'), this_level.id, prev_stop + 1, [prev_stop + 1 + (bin_size**this_level.number), CHROMOSOME_LENGTHS[chr_number]].min, '', child_id_array.join(',')].join('|')
+            child_ids = [child_id_array[0].sub(/\d+\.\d+\./, ''), child_id_array[-1].sub(/\d+\.\d+\./, '')].join('-')
+            import_file.puts [[chr_number, this_level.number, node_id].join('.'), this_level.id, prev_stop + 1, [prev_stop + 1 + (bin_size**this_level.number), CHROMOSOME_LENGTHS[chr_number]].min, '', child_ids].join('|')
             prev_stop = [prev_stop + 1 + (bin_size**this_level.number) - 1, CHROMOSOME_LENGTHS[chr_number]].min
           end
           pbar.finish
@@ -146,9 +144,10 @@ module LocusTree
               child_id = bin_size*(node_id-1) + n + 1
               child_id_array.push(chr_number + '.' + previous_level.number.to_s + '.' + child_id.to_s)
             end
-            import_file.puts [[chr_number, this_level.number, node_id].join('.'), this_level.id, prev_stop + 1, CHROMOSOME_LENGTHS[chr_number], '', child_id_array.join(',')].join('|')
+            child_ids = [child_id_array[0].sub(/\d+\.\d+\./, ''), child_id_array[-1].sub(/\d+\.\d+\./, '')].join('-')
+            import_file.puts [[chr_number, this_level.number, node_id].join('.'), this_level.id, prev_stop + 1, CHROMOSOME_LENGTHS[chr_number], '', child_ids].join('|')
           end
-          this_level.node_ids = node_ids_in_level.join(',')
+          this_level.node_ids = [child_id_array[0].sub(/\d+\.\d+\./, ''), child_id_array[-1].sub(/\d+\.\d+\./, '')].join('-')
           this_level.save
           import_file.close
           system "sqlite3 -separator '|' #{self.database_file} '.import /tmp/locus_tree_#{chr_number}_#{this_level.number.to_s}.copy locus_tree_nodes'"
@@ -174,9 +173,10 @@ module LocusTree
           node_ids_in_level.push([chr_number, this_level.number, node_id].join('.'))
           child_id_array.push(chr_number + '.' + previous_level.number.to_s + '.' + child_id.to_s)
         end
-        this_level.node_ids = node_ids_in_level.join(',')
+        this_level.node_ids = [child_id_array[0].sub(/\d+\.\d+\./, ''), child_id_array[-1].sub(/\d+\.\d+\./, '')].join('-')
         this_level.save
-        import_file.puts [[chr_number, this_level.number, node_id].join('.'), this_level.id, 1, CHROMOSOME_LENGTHS[chr_number], '', child_id_array.join(',')].join('|')
+        child_ids = [child_id_array[0].sub(/\d+\.\d+\./, ''), child_id_array[-1].sub(/\d+\.\d+\./, '')].join('-')
+        import_file.puts [[chr_number, this_level.number, node_id].join('.'), this_level.id, 1, CHROMOSOME_LENGTHS[chr_number], '', child_ids].join('|')
         import_file.close
         system "sqlite3 -separator '|' #{self.database_file} '.import /tmp/locus_tree_#{chr_number}_#{this_level.number.to_s}.copy locus_tree_nodes'"
       end
@@ -247,9 +247,8 @@ module LocusTree
       return answer[0]
     end
 
-    def aggregate#(method = :count)
+    def aggregate(method = [:count])
       self.trees.each do |tree|
-        STDERR.puts "Chromosome: " + tree.chromosome
         tree.aggregate
       end
     end

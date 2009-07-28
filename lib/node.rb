@@ -15,7 +15,7 @@ module LocusTree
     property :level_id, Integer
     property :start, Integer
     property :stop, Integer
-    property :value, Float
+    property :value, Float, :default => 0.0
     property :child_ids, String
 
     belongs_to :level
@@ -41,8 +41,12 @@ module LocusTree
 
     def children
       answer = Array.new
-      self.child_ids.split(/,/).each do |child_id|
-        answer.push(self.class.first(:id => child_id))
+      chr = self.level.tree.chromosome
+      level_nr = self.level.number - 1
+      
+      boundaries = self.child_ids.split(/\-/)
+      (boundaries[0]..boundaries[1]).each do |child_id|
+        answer.push(self.class.first(:id => [chr, level_nr, child_id].join('.')))
       end
       return answer
     end
