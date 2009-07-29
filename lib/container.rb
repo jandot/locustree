@@ -275,78 +275,61 @@ module LocusTree
     end
     
     def query(chromosome, start, stop, resolution)
-      level_number = (Math.log(resolution).to_f/Math.log(self.nr_children)).floor
-      search_range = Range.new(start, stop)
-      tree = self.trees.select{|t| t.chromosome == chromosome}[0]
-      max_level = tree.levels.sort_by{|l| l.number}[-1].number
-      target_level = nil
-      if level_number > max_level
-        target_level = tree.levels.sort_by{|l| l.number}[-1]
-        warn "Level_number bigger than max_level. Target_level now " + target_level.number.to_s
-      else
-        target_level = tree.levels.select{|l| l.number >= level_number}.sort_by{|l| l.number}[0]
-      end
-      
-      level = tree.top_level
-      nodes_to_check = LocusTree::Node.all(:id => [tree.chromosome, tree.max_level, 0].join('.'))
-      until level.number == target_level.number
-        STDERR.puts "level number: " + level.number.to_s
-        positive_nodes_at_level = Array.new
-        nodes_to_check.each do |node|
-          STDERR.puts "  checking node: " + node.to_s
-          child_nodes = node.children_in_range(start, stop)
-          STDERR.puts "    nr of child nodes: " + child_nodes.length.to_s
-          if node.start >= start and node.stop <= stop
-            positive_nodes_at_level.push(child_nodes)
-          else
-            unless child_nodes.length == 0
-              child_nodes.sort_by{|n| n.start}.each do |child_node|
-                next if child_node.stop < start
-                if Range.new(child_node.start, child_node.stop).overlaps?(search_range)
-                  positive_nodes_at_level.push(child_node)
-                end
-                break if child_node.start > stop
-              end
-            end
-          end
-        end
-        level = tree.levels.select{|l| l.number == level.number - 1}[0]
-        nodes_to_check = positive_nodes_at_level
-      end
+      tree = LocusTree::Tree.first(:chromosome => chromosome)
 
-      return positive_nodes_at_level
+      # We take a conservative approach: get the level that has _at least_ the
+      # resolution requested. In case the requested resolution is smaller than
+      # that of the bottom level, we have to correct for that and just return
+      # that bottom level.
+      level_number = (Math.log(resolution).to_f/Math.log(self.nr_children)).floor
+      level_number = 1 if level_number == 0
+      start_id = (start-1).div(self.nr_children**level_number)
+      stop_id = (stop-1).div(self.nr_children**level_number)
+      answer = Array.new
+      (start_id..stop_id).each do |id|
+        node_id = [chromosome, level_number, id].join('.')
+        node = LocusTree::Node.first(:id => node_id)
+        if node.nil?
+          node = LocusTree::Node.new
+          node.id = node_id
+          node.level_id = LocusTree::Level.first(:tree_id => tree.id, :number => level_number).id
+          node.start = id*(self.nr_children**level_number) + 1
+          node.stop = [node.start + (self.nr_children**level_number) - 1, CHROMOSOME_LENGTHS[chromosome]].min
+          node.value = 0
+        end
+        answer.push(node)
+      end
+      return answer
     end
 
     def query_single_bin(chromosome, start, stop)
-      tree = self.trees.select{|t| t.chromosome == chromosome}[0]
-      
-      level = tree.top_level
-      nodes_to_check = LocusTree::Node.all(:id => [chromosome, level.number, 1].join('.'))
-      answer = Array.new
-      while nodes_to_check.length == 1 and level.number >= 2
-        answer = nodes_to_check
-        positive_nodes_at_level = Array.new
-        nodes_to_check.each do |node|
-#          child_nodes = node.children
-          child_nodes = node.children_in_range(start, stop)
-          child_nodes.sort_by{|n| n.start}.each do |child_node|
-            next if child_node.stop < start
-            if child_node.start <= start and child_node.stop >= stop #Range.new(child_node.start, child_node.stop).overlaps?(search_range)
-              positive_nodes_at_level.push(child_node)
-            end
-            break if child_node.start > stop
-          end
-        end
-        level = tree.levels.select{|l| l.number == level.number - 1}[0]
-        nodes_to_check = positive_nodes_at_level
-      end
-      return answer[0]
-    end
+      tree = LocusTree::Tree.first(:chromosome => chromosome)
 
-    def aggregate(method = [:count])
-      self.trees.each do |tree|
-        tree.aggregate
+      # We take a conservative approach: get the level that has _at least_ the
+      # resolution requested. In case the requested resolution is smaller than
+      # that of the bottom level, we have to correct for that and just return
+      # that bottom level.
+      level_number = tree.top_level.number
+      start_id = (start-1).div(self.nr_children**level_number)
+      stop_id = (stop-1).div(self.nr_children**level_number)
+      while start_id == stop_id
+        previous_start_id = start_id
+        previous_level_number = level_number
+        level_number -= 1
+        start_id = (start-1).div(self.nr_children**level_number)
+        stop_id = (stop-1).div(self.nr_children**level_number)
       end
+      node_id = [chromosome, previous_level_number, previous_start_id].join('.')
+      node = LocusTree::Node.first(:id => previous_start_id)
+      if node.nil?
+        node = LocusTree::Node.new
+        node.id = node_id
+        node.level_id = LocusTree::Level.first(:tree_id => tree.id, :number => previous_level_number).id
+        node.start = previous_start_id*(self.nr_children**previous_level_number) + 1
+        node.stop = [node.start + (self.nr_children**previous_level_number) - 1, CHROMOSOME_LENGTHS[chromosome]].min
+        node.value = 0
+      end
+      return node
     end
 
     # == Description
