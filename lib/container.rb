@@ -199,7 +199,7 @@ module LocusTree
         tree_cache[chr_number] = tree
       end
 
-      pbar = ProgressBar.new('loading', 36653)
+      pbar = ProgressBar.new('creating', 36653)
       File.open(feature_file).each do |line|
         pbar.inc
         name, chr, start, stop = line.chomp.split(/\t/)
@@ -225,10 +225,11 @@ module LocusTree
           node.id = node_id
           node.level_id = level.id
           node.start = ((start-1).div(self.nr_children**level_nr))*(self.nr_children**level_nr) + 1
-          node.stop = node.start + (self.nr_children**level_nr) - 1
-          node.save
+          node.stop = [node.start + (self.nr_children**level_nr) - 1, CHROMOSOME_LENGTHS[chr]].min
+#          node.save
           node_cache[node_id] = node
         end
+        node.value += 1
 
         feature = LocusTree::Feature.new
         feature.chr = chr
@@ -244,7 +245,7 @@ module LocusTree
           if level.nil?
             level = LocusTree::Level.new
             level.tree_id = tree_cache[chr].id
-            level.resolution = self.nr_children**level_nr
+            level.resolution = [self.nr_children**level_nr, CHROMOSOME_LENGTHS[chr]].min
             level.number = level_nr
             level.save
             level_cache[chr + '.' + level_nr.to_s] = level
@@ -256,11 +257,19 @@ module LocusTree
             node.id = node_id
             node.level_id = level.id
             node.start = ((start-1).div(self.nr_children**level_nr))*(self.nr_children**level_nr) + 1
-            node.stop = node.start + (self.nr_children**level_nr) - 1
-            node.save
+            node.stop = [node.start + (self.nr_children**level_nr) - 1, CHROMOSOME_LENGTHS[chr]].min
+#            node.save
             node_cache[node_id] = node
           end
+          node.value += 1
         end
+      end
+      pbar.finish
+
+      pbar = ProgressBar.new('saving', node_cache.keys.length)
+      node_cache.values.each do |node|
+        pbar.inc
+        node.save
       end
       pbar.finish
     end
