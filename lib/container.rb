@@ -332,6 +332,12 @@ module LocusTree
       return node
     end
 
+#    def aggregate(method = [:count])
+#      self.trees.each do |tree|
+#        tree.aggregate
+#      end
+#    end
+
     # == Description
     #
     # Prints out the container

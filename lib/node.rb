@@ -87,9 +87,9 @@ module LocusTree
       chr = self.level.tree.chromosome
       level_nr = self.level.number - 1
 #      number = self.id.sub(/^\d+\.\d+\./,'').to_i
-      left_boundary = start.div(bin_size**(level_nr)) + 1
-      right_boundary = stop.div(bin_size**(level_nr)) + 1
-      STDERR.puts "    boundaries: " + [left_boundary, right_boundary].join('-')
+      left_boundary = start.div(bin_size**(level_nr))# + 1
+      right_boundary = stop.div(bin_size**(level_nr))# + 1
+#      STDERR.puts "    boundaries: " + [left_boundary, right_boundary].join('-')
       (left_boundary..right_boundary).each do |n|
         node = self.class.first(:id => [chr, level_nr, n].join('.'))
         answer.push(node) unless node.nil?
@@ -111,19 +111,19 @@ module LocusTree
     end
 
     def to_s
-      return self.level.tree.chromosome + ':' + self.start.to_s + '..' + self.stop.to_s
+      return self.id + "\t" + self.level.tree.chromosome + ':' + self.start.to_s + '..' + self.stop.to_s
     end
 
-    def aggregate
-      count = 0
-      unless self.level.number == 1
-        self.children.each do |child|
-          count += child.value
-        end
-      end
-      count += LocusTree::Feature.count(:node_id => self.id)
-      self.value = count
-      self.save
-    end
+#    def aggregate
+#      count = 0
+#      unless self.level.number == 1
+#        self.children.each do |child|
+#          count += child.value
+#        end
+#      end
+#      count += LocusTree::Feature.count(:node_id => self.id)
+#      self.value = count
+#      self.save
+#    end
   end
 end
