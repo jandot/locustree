@@ -1,101 +1,43 @@
-h1. LocusTree - Ruby library to search genomic loci using R-Tree
+h1. LocusTree - Ruby library to search genomic loci
 
-_"Features should not know where they are" (James Bonfield, WTSI - paraphrased)_
+The LocusTree library helps inworking with large numbers of genomic features. It
+has two clear uses.
 
-h2. Problem setting
+h3. Fast searching
 
-Imagine an application that handles features on a chromosome (e.g. genes) and lets you select a region for which to return all of those features. As the mapping information is normally stored in the feature (having a _start_ and an _end_ on a chromosome), you have to go through all features sequentially to determine which ones are actually in your region and should be displayed.
+The naive way of fetching all features in a given genomic locus is to go through
+all of them and check whether they are in the target locus or not. This works
+fine for smaller datasets, but is very slow for very large ones.
 
-Or imagine a visualization like Google Maps but displaying quantitative information rather than streets and roads. Let's say the height of the terrain. Also suppose that you have data for every square meter in the UK. When you look at the whole of the UK at once in a 800x600 pixel display you won't be able to show all raw data but will have to average the data for large regions of the UK.
+There are several ways for speeding this up. One is using a *binary search* on the
+sorted features; another is to use a *tree*. LocusTree uses this second approach. 
+A whole chromosome is split up in, say, 100 chunks. Each of these chunks is split
+again in 100 parts, and so on. To get all features in a given region, we can 
+do a top-down search. We check all 100 of the nodes at the top level that overlap
+with the target locus. For those that match we check the 100 subnodes, and so on.
 
-h2. A solution
+h3. Aggregation
 
-What you can do to solve the above two problems, is build a hierarchical tree, where the top node contains the average for the complete dataset (i.c. terrain height), and a small group of non-intersecting leaf nodes. These leaf nodes together should make up the whole top node. Each leaf node again contains the average of all data within it, and is subdivided into ever smaller leaf nodes, and so on.
+For some purposes we don't want to get the results at the highest *resolution*. 
+This is especially true for *genome browsers*. Suppose you want to display 15 
+mission SNPs on a genome and your display is 800 pixels wide. The simplest way
+of doing this is to take each of the 15 million SNPs, calculate it's pixel
+position and draw it. But this means doing 15 million fetches/calculations to
+draw only 800 datapoints. Using LocusTree, we can select that level of the tree
+that has about 800 nodes. If, while building the tree, we added a value to each
+node that states how many SNPs are within that node and its subnodes, we only
+have to fetch 800 datapoints and show the SNP density for each of them.
 
-When looking at a map of the whole of the UK, we know that we need height information for 800x600=480,000 pixels. Instead of loading the whole height dataset at this point, we just take that layer of the R-tree that contains 480,000 leafs or is the closest to it.
+h2. More information
 
-h3. Example data structure
+For more information, see the "project wiki page":http://wiki.github.com/jandot/locustree
 
-Suppose you have 20 ranges: 10..15, 20..25, 30..35, 40..45, ... A LocusTree with minimum number of children of 2 and maximum number of children of 3 would look like this (a 'value' for each of the ranges (e.g. read depth) is added between parentheses):
-<pre>
-  LEVEL 0           LEVEL 1             LEVEL 2            LEVEL 3 (=root)
-  10..15 (1)    -+
-  20..25 (2)     |- 10..35 (2)      -+
-  30..35 (3)    -+                   |
-  40..45 (4)    -+                   |
-  50..55 (5)     |- 40..65 (5)       |- 10..95 (5)      -+
-  60..65 (6)    -+                   |                   |
-  70..75 (7)    -+                   |                   |
-  80..85 (8)     |- 70..95 (8)      -+                   |
-  90..95 (9)    -+                                       |
-  100..105 (10) -+                                       |
-  110..115 (11)  |- 100..125 (11)   -+                   |
-  120..125 (12) -+                   |                   |- 10..205 (10.5)
-  130..135 (13) -+                   |                   |
-  140..145 (14)  |- 130..155 (14)    |- 100..185 (14)    |
-  150..155 (15) -+                   |                   |
-  160..165 (16) -+                   |                   |
-  170..175 (17)  |- 160..185 (17)   -+                   |
-  180..185 (18) -+                                       |
-  190..195 (19) -+                                       |
-  200..205 (20) -+- 190..205 (19.5) --- 190..205 (19.5) -+
-</pre>
+h2. Usage
 
-If you would have to display this whole region, but only have 7 pixels to do it in, you would use the data in LEVEL 1. It is no use trying to cram in all raw data from LEVEL 0 because it can't all be shown. For each parent node, the value for that node is the average of the child nodes weighted by the number of LEVEL 0 nodes that are covered by each child.
-
-h3. Terms
-
-Because of the nature of the beast, several objects have to play together to provide this functionality:
-
-* *LocusTree::Node*: This is the bin that contains data. There are 3 types of nodes: (1) _leaf_, which is a bin at the highest resolution (currently, every single input locus gets its own leaf node), (2) _index_, which is any bin containing other bins, and (3) _root_, which is the top bin. There is only one _root_ node per tree.
-* *LocusTree::Level*: All leaf nodes are level 0, and are binned into a bin level 1, which in turn...
-* *LocusTree::Tree*: Every independent scaffold (i.e. chromosome, contig, linkage_group, ...) has its own tree, because it does not make sense to search for loci that span different chromosomes...
-* *LocusTree::Container*: The main container with all data. There's only one container.
-
-h3. Usage
-
-Input data has to be in GFF format.
-
-<pre>
-require 'locus_tree'
-locus_container = LocusTree::Container.new(2,3, 'index_file.sqlite3')
-locus_container.bulk_load('data_with_values.gff')
-results = locus_container.search(Locus.new('1',41,89), 1)   # Search for that range returning nodes on LEVEL 1.
-puts results.collect{|n| n.value}.sort                  # output: [5,8]
-</pre>
-
-The above creates a database file (here named 'index_file.sqlite3') which can be used afterwards. So we don't need to recreate the index.
-<pre>
-require 'locus_tree'
-locus_container = LocusTree::Container.open('index_file.sqlite3')
-results = locus_container.search(Locus.new('1',41,89), 1)
-puts results.collect{|n| n.value}.sort
-</pre>
-
-Creating this index for 6.04 million loci with a node size of 250 elements on my laptop took 43 minutes. However, when that index database was created, it can be accessed and queried in fractions of seconds.
-
-h2. Sample
-
-There's a sample directory with three scripts: one to build a collection of raw data, one to build the index and one to do a search. The example data is 1 million readdepth datapoints.
-
-A very crude benchmark on different binsizes
-* *binsize = 50*
-** database size = 44Mb
-** building index takes 6 minutes 4 seconds
-** searching index (chr1 from pos 500 to 7000) takes less than 1 second
-* *binsize = 2*
-** database size = 87Mb
-** building index takes 16 minutes 10 seconds
-** searching index takes 4 seconds
-
-h2. To do
-
-* Add methods to insert datapoints
-* Add methods to split and merge nodes (based on Container.min_children)
-* Add additional ways to aggregate data other than the average value
-* Check if things still work with loci that are of different sizes and that overlap
-* Allow different approaches for creating the bins (e.g. based on number of elements, based on maximum range, ...)
-* Remove hard-coded temporary filename for sqlite3 import.
-* Decrease size of database
-* Speed up data loading (especially Array#each_slice)
-* Add inline documentation
+<pre><code>require 'locus_tree'
+container = LocusTree::Container.new(100, 'genes.txt.index100', 'genes.txt')
+positive_nodes = container.query('2', 143570750, 143570790, 10)
+positive_nodes.each do |node|
+  puts node.to_s + "\t" + node.value.to_s
+end
+puts container.query_single_bin('24', 49_050, 49_500).to_s</code></pre>
