@@ -80,11 +80,21 @@ if __FILE__ == $0
 #  @container.aggregate(:count)
 #
 #  logger.info "Fetching stuff"
-#  positive_nodes = @container.query('1', 500, 10000000, 999999)
-#  positive_nodes.each do |node|
-#    puts node.to_s + "\t" + node.value.to_s
-#  end
-#
+  positive_nodes = @container.query('2', 143570750, 143570790, 100)
+  positive_nodes.each do |node|
+    puts node.to_s + "\t" + node.value.to_s
+  end
+
+  positive_nodes = @container.query('2', 143570850, 143570890, 100)
+  positive_nodes.each do |node|
+    puts node.to_s + "\t" + node.value.to_s
+  end
+
+  positive_nodes = @container.query('2', 143570450, 143570890, 100)
+  positive_nodes.each do |node|
+    puts node.to_s + "\t" + node.value.to_s
+  end
+  
   puts @container.query_single_bin('24', 500, 50_000).to_s
   puts @container.query_single_bin('24', 49_050, 49_500).to_s
   puts @container.query_single_bin('24', 999999, 1000002).to_s
