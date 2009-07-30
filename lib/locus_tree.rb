@@ -12,6 +12,7 @@ require File.dirname(__FILE__) + '/tree.rb'
 require File.dirname(__FILE__) + '/level.rb'
 require File.dirname(__FILE__) + '/node.rb'
 require File.dirname(__FILE__) + '/feature.rb'
+require File.dirname(__FILE__) + '/fixnum.rb'
 
 CHROMOSOME_LENGTHS = {'1' => 247249719,
                       '2' => 242951149,
@@ -40,13 +41,15 @@ CHROMOSOME_LENGTHS = {'1' => 247249719,
                      }
 
 if __FILE__ == $0
-  bin_size = 1000
+  bin_size = 4000
+  nr_children = 2
+
 #  logger = Logger.new('logger_' + bin_size.to_s + '.txt')
 #  logger.level = Logger::INFO
 
 #  logger.info "Creating structure"
 #  @container = LocusTree::Container.new(bin_size, 'locus_tree_' + bin_size.to_s + '.sqlite3')
-#  @container = LocusTree::Container.new(bin_size, 'locus_tree_' + bin_size.to_s + '.sqlite3', 'genes.txt')
+#  @container = LocusTree::Container.new(bin_size, nr_children, 'locus_tree_' + bin_size.to_s + '.sqlite3', 'genes.txt')
   @container = LocusTree::Container.load_structure('locus_tree_' + bin_size.to_s + '.sqlite3')
 #
 #  logger.info "Creating indexes"
