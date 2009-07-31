@@ -196,7 +196,8 @@ module LocusTree
         tree = LocusTree::Tree.new
         tree.container_id = self.id
         tree.chromosome = chr_number
-        tree.max_level = (Math.log(CHROMOSOME_LENGTHS[chr_number]).to_f/Math.log(self.nr_children)).floor + 1
+        tree.max_level = (Math.log(CHROMOSOME_LENGTHS[chr_number].to_f/self.base_size).to_f/Math.log(self.nr_children)).floor + 1
+#        STDERR.puts "tree max_level: " + tree.max_level.to_s
         tree.save
         tree_cache[chr_number] = tree
       end
@@ -290,8 +291,8 @@ module LocusTree
       # resolution requested. In case the requested resolution is smaller than
       # that of the bottom level, we have to correct for that and just return
       # that bottom level.
-      level_number = (Math.log(resolution).to_f/Math.log(self.nr_children)).floor
-      level_number = 1 if level_number == 0
+      level_number = (Math.log(resolution.to_f/self.base_size).to_f/Math.log(self.nr_children)).floor
+      level_number = 0 if level_number < 0
       start_id = start.node_number(self.base_size, self.nr_children, level_number)
       stop_id = stop.node_number(self.base_size, self.nr_children, level_number)
       answer = Array.new
@@ -321,6 +322,8 @@ module LocusTree
       level_number = tree.top_level.number
       start_id = (start-1).div(self.nr_children**level_number)
       stop_id = (stop-1).div(self.nr_children**level_number)
+      previous_start_id = 0
+      previous_level_number = level_number
       while start_id == stop_id
         previous_start_id = start_id
         previous_level_number = level_number
