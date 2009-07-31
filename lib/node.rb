@@ -21,36 +21,6 @@ module LocusTree
     belongs_to :level
     has n, :features
 
-#    # == Description
-#    #
-#    # Returns the locus covered by this node.
-#    #
-#    # == Usage
-#    #
-#    #   node.locus
-#    #
-#    # ---
-#    # *Arguments*:: none
-#    # *Returns*:: Locus object
-#    def locus
-#      if @locus.nil?
-#        @locus = Locus.new(self.chromosome, self.start, self.stop)
-#      end
-#      return @locus
-#    end
-
-#    def children
-#      answer = Array.new
-#      chr = self.level.tree.chromosome
-#      level_nr = self.level.number - 1
-#
-#      boundaries = self.child_ids.split(/\-/)
-#      (boundaries[0]..boundaries[1]).each do |child_id|
-#        answer.push(self.class.first(:id => [chr, level_nr, child_id].join('.')))
-#      end
-#      return answer
-#    end
-
     def children
       return [] if self.level.number == 1
 
@@ -95,35 +65,10 @@ module LocusTree
         answer.push(node) unless node.nil?
       end
       return answer
-
-#      chr = self.level.tree.chromosome
-#      level_nr = self.level.number - 1
-#
-#      bin_size = self.level.tree.container.nr_children
-#      answer = Array.new
-#      first_node_nr = start.div(bin_size**(level_nr)) + 1
-#      last_node_nr = stop.div(bin_size**(level_nr)) + 1
-#
-#      (first_node_nr..last_node_nr).each do |nr|
-#        answer.push(self.class.first(:id => [chr, level_nr, nr].join('.')))
-#      end
-#      return answer
     end
 
     def to_s
       return self.id + "\t" + self.level.tree.chromosome + ':' + self.start.to_s + '..' + self.stop.to_s
     end
-
-#    def aggregate
-#      count = 0
-#      unless self.level.number == 1
-#        self.children.each do |child|
-#          count += child.value
-#        end
-#      end
-#      count += LocusTree::Feature.count(:node_id => self.id)
-#      self.value = count
-#      self.save
-#    end
   end
 end

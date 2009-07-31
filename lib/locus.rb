@@ -4,14 +4,6 @@ class IsLocus
   attr_accessor :range
   attr_accessor :as_string
   
-  def as_string
-    if @as_string.nil?
-      @as_string = [@chromosome.pad('0', 2), @start.to_s.pad('0', 9), @stop.to_s.pad('0', 9)].join('_')
-    else
-      return @as_string
-    end
-  end
-
   def range
     return Range.new(self.start, self.stop)
   end
