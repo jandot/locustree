@@ -65,18 +65,22 @@ module LocusTree
       level_cache = Hash.new #key = chr.level_nr; value = level object
       node_cache = Hash.new #key = node id; value = node object
       CHROMOSOME_LENGTHS.keys.each do |chr_number|
+        STDERR.puts "chr: " + chr_number.to_s
         tree = LocusTree::Tree.new
         tree.container_id = self.id
         tree.chromosome = chr_number
         tree.max_level = (Math.log(CHROMOSOME_LENGTHS[chr_number].to_f/self.base_size).to_f/Math.log(self.nr_children)).floor + 1
-#        STDERR.puts "tree max_level: " + tree.max_level.to_s
+        STDERR.puts "tree max_level: " + tree.max_level.to_s
         tree.save
         tree_cache[chr_number] = tree
       end
 
+      import_file = File.new('/tmp/locus_tree_features.copy', 'w')
       pbar = ProgressBar.new('creating', `wc -l #{feature_file}`.split[0].to_i)
+      feature_id = 0
       File.open(feature_file).each do |line|
         pbar.inc
+        feature_id += 1
         name, chr, start, stop = line.chomp.split(/\t/)
         start = start.to_i
         stop = stop.to_i
@@ -109,15 +113,16 @@ module LocusTree
         end
         node.value += 1
 
-        feature = LocusTree::Feature.new
-        feature.chr = chr
-        feature.start = start.to_i
-        feature.stop = stop.to_i
-        feature.node_id = node_id
-        feature.save
+#        feature = LocusTree::Feature.new
+#        feature.chr = chr
+#        feature.start = start.to_i
+#        feature.stop = stop.to_i
+#        feature.node_id = node_id
+#        feature.save
+        import_file.puts [feature_id, node_id, chr, start, stop, ''].join('|')
 
         tree = tree_cache[chr]
-        while level_nr < tree.max_level
+        while level_nr <= tree.max_level
           level_nr += 1
           level = level_cache[chr + '.' + level_nr.to_s]
           if level.nil?
@@ -144,6 +149,8 @@ module LocusTree
         end
       end
       pbar.finish
+      import_file.close
+      system "sqlite3 -separator '|' #{self.database_file} '.import /tmp/locus_tree_features.copy locus_tree_features'"
 
       import_file = File.new('/tmp/locus_tree_nodes.copy', 'w')
       pbar = ProgressBar.new('saving', node_cache.keys.length)
@@ -176,7 +183,13 @@ module LocusTree
         if node.nil?
           node = LocusTree::Node.new
           node.id = node_id
-          node.level_id = LocusTree::Level.first(:tree_id => tree.id, :number => level_number).id
+          level = LocusTree::Level.first(:tree_id => tree.id, :number => level_number)
+          if level.nil?
+            level = LocusTree::Level.new
+            level.tree_id = tree.id
+            level.number = level_number
+          end
+          node.level = level
           node.start = (id - 1) * (self.nr_children**level_number) * self.base_size + 1
           node.stop = [id * (self.nr_children**level_number) * self.base_size, CHROMOSOME_LENGTHS[chromosome]].min
           node.value = 0
@@ -194,6 +207,7 @@ module LocusTree
       # that of the bottom level, we have to correct for that and just return
       # that bottom level.
       level_number = tree.top_level.number
+      STDERR.puts "Query start level_nr: " + level_number.to_s
       start_id = (start-1).div(self.nr_children**level_number)
       stop_id = (stop-1).div(self.nr_children**level_number)
       previous_start_id = 0
@@ -211,7 +225,12 @@ module LocusTree
         node = LocusTree::Node.new
         node.id = node_id
         level = LocusTree::Level.first(:tree_id => tree.id, :number => previous_level_number)
-        node.level_id = level.id unless level.nil?
+        if level.nil?
+          level = LocusTree::Level.new
+          level.tree_id = tree.id
+          level.number = previous_level_number
+        end
+        node.level = level
         node.start = previous_start_id*(self.nr_children**previous_level_number) + 1
         node.stop = [node.start + (self.nr_children**previous_level_number) - 1, CHROMOSOME_LENGTHS[chromosome]].min
         node.value = 0
