@@ -5,10 +5,10 @@ module LocusTree
   # to the level of the leaf nodes.
   #
   class Level
-    attr_accessor :number, :resolution, :byte_offset
+    attr_accessor :tree, :number, :resolution, :byte_offset
 
-    def initialize(number, byte_offset)
-      @number, @byte_offset = number, byte_offset
+    def initialize(tree, number, byte_offset)
+      @tree, @number, @byte_offset = tree, number, byte_offset
     end
   end
 end

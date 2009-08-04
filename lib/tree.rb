@@ -6,11 +6,12 @@ module LocusTree
   # bottom level nodes (level 0) correspond to single raw datapoints. Different
   # chromosomes cannot be part of the same tree (see LocusTree::Container).
   class Tree
+    attr_accessor :container
     attr_accessor :chromosome, :nr_levels
     attr_accessor :levels
 
-    def initialize(chr, nr_levels)
-      @chromosome, @nr_levels = chr, nr_levels
+    def initialize(container, chr, nr_levels)
+      @container, @chromosome, @nr_levels = container, chr, nr_levels
       @levels = Hash.new
     end
   end

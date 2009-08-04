@@ -28,11 +28,11 @@ module LocusTree
       nr_levels_per_chromosome = Hash.new
       container.trees = Hash.new
       CHROMOSOME_LENGTHS.keys.sort.each do |chr_number|
-        container.trees[chr_number] = LocusTree::Tree.new(chr_number, nr_levels_per_chromosome[chr_number])
         header_information << chr_number.to_i
         header_size += 4
         nr_levels = (Math.log(CHROMOSOME_LENGTHS[chr_number].to_f/base_size).to_f/Math.log(nr_children)).floor + 1
         nr_levels_per_chromosome[chr_number] = nr_levels
+        container.trees[chr_number] = LocusTree::Tree.new(container, chr_number, nr_levels_per_chromosome[chr_number])
         header_information << nr_levels
         header_size += 4
         nr_levels.times do |n|
@@ -41,7 +41,7 @@ module LocusTree
           # Each node needs 32 bytes
           nr_nodes_in_level = (CHROMOSOME_LENGTHS[chr_number].to_f/(base_size*(nr_children**n))).ceil
           bytes_needed_for_level = nr_nodes_in_level * 20
-          container.trees[chr_number].levels[n] = LocusTree::Level.new(n, level_data_byte_offset)
+          container.trees[chr_number].levels[n] = LocusTree::Level.new(container.trees[chr_number], n, level_data_byte_offset)
           level_data_byte_offset += bytes_needed_for_level
         end
       end
@@ -57,9 +57,7 @@ module LocusTree
 
       # Create structure
       CHROMOSOME_LENGTHS.keys.sort.each do |chr_number|
-        STDERR.puts chr_number
         nr_levels_per_chromosome[chr_number].times do |level_number|
-          STDERR.puts "\t" + level_number.to_s
           bin_size = base_size*(nr_children**level_number)
           start = 1
           stop = start + bin_size - 1
@@ -80,8 +78,9 @@ module LocusTree
     end
 
     def fill(feature_file)
+      nr_of_features = `wc -l #{feature_file}`.split[0].to_i
       # Add the feature to the smallest node that encloses it
-      pbar = ProgressBar.new('filling', 36653)
+      pbar = ProgressBar.new('filling', nr_of_features)
       File.open(feature_file).each do |line|
         pbar.inc
         name, chr, start, stop = line.chomp.split("\t")
@@ -92,12 +91,28 @@ module LocusTree
         count = @index_file.read(4).unpack("i")[0] + 1
         @index_file.pos -= 4
         @index_file.write([count].pack("i"))
+
+        parent_node = enclosing_node.parent_node
+        unless parent_node.nil?
+          while parent_node.level.number < parent_node.level.tree.nr_levels - 1
+            @index_file.pos = parent_node.byte_offset
+            @index_file.pos += 4*3
+            count = @index_file.read(4).unpack("i")[0] + 1
+            @index_file.pos -= 4
+            @index_file.write([count].pack("i"))
+            parent_node = parent_node.parent_node
+          end
+        end
       end
+      pbar.finish
 
       # Add the feature to the end of the file
+      # TODO: Features have to be ordered
+      pbar = ProgressBar.new('adding to end', nr_of_features)
       @index_file.seek(-1, File::SEEK_END)
       line_counter = 0
       File.open(feature_file).each do |line|
+        pbar.inc
         line_counter += 1
         name, chr, start, stop = line.chomp.split("\t")
         @index_file << [[chr.rjust(2,'0'), start.rjust(9,'0'), stop.rjust(9,'0')].join('_')].pack("a22")
@@ -115,42 +130,42 @@ module LocusTree
       container.trees = Hash.new
       while container.index_file.pos < container.header_size
         chr_number, nr_levels = container.index_file.read(8).unpack("i*")
-        container.trees[chr_number] = LocusTree::Tree.new(chr_number, nr_levels)
+        container.trees[chr_number] = LocusTree::Tree.new(container, chr_number, nr_levels)
         nr_levels.times do |level|
           byte_offset = container.index_file.read(4).unpack("i")[0] + container.header_size
-          container.trees[chr_number].levels[level] = LocusTree::Level.new(level, byte_offset)
+          container.trees[chr_number].levels[level] = LocusTree::Level.new(container.trees[chr_number], level, byte_offset)
         end
       end
       return container
     end
 
     def get_node(chr_number, pos, level_number)
-      STDERR.puts '----'
       tree = @trees[chr_number]
       level = tree.levels[level_number]
       resolution_at_level = @base_size*(@nr_children**level_number)
-      STDERR.puts "query: " + pos.to_s
-      STDERR.puts "resolution: " + resolution_at_level.to_s
       bin = (pos-1).div(resolution_at_level)
       @index_file.pos = level.byte_offset + bin*20
       data = @index_file.read(20).unpack("i*")
-      return LocusTree::Node.new(data[0], data[1], data[3], data[4])
+      node_byte_offset = tree.levels[level_number].byte_offset + bin*20
+      node = LocusTree::Node.new(level, data[0], data[1], data[3], data[4])
+      node.byte_offset = node_byte_offset
+      return node
     end
 
     def get_nodes(chr_number, start, stop, level_number)
-      STDERR.puts '----'
       tree = @trees[chr_number]
       level = tree.levels[level_number]
       answer = Array.new
       resolution_at_level = @base_size*(@nr_children**level_number)
-      STDERR.puts "query: " + [start, stop].join("\t")
-      STDERR.puts "resolution: " + resolution_at_level.to_s
       start_bin = (start-1).div(resolution_at_level)
       stop_bin = (stop-1).div(resolution_at_level)
       @index_file.pos = level.byte_offset + start_bin*20
-      (stop_bin - start_bin + 1).times do
+      (stop_bin - start_bin + 1).times do |bin|
         data = @index_file.read(20).unpack("i*")
-        answer.push LocusTree::Node.new(data[0], data[1], data[3], data[4])
+        node_byte_offset = tree.levels[level_number].byte_offset + bin*20
+        node = LocusTree::Node.new(level, data[0], data[1], data[3], data[4])
+        node.byte_offset = node_byte_offset
+        answer.push node
       end
       return answer
     end
@@ -160,19 +175,21 @@ module LocusTree
       level_number = tree.levels.keys.max
       resolution_at_level = @base_size*(@nr_children**level_number)
       previous_start_bin = 0
+      previous_level_number = level_number
       start_bin = (start-1).div(resolution_at_level)
       stop_bin = (stop-1).div(resolution_at_level)
       while start_bin == stop_bin and level_number > 0
         previous_start_bin = start_bin
+        previous_level_number = level_number
         level_number -= 1
         resolution_at_level = @base_size*(@nr_children**level_number)
         start_bin = (start-1).div(resolution_at_level)
         stop_bin = (stop-1).div(resolution_at_level)
       end
-      node_byte_offset = tree.levels[level_number].byte_offset + previous_start_bin*20
+      node_byte_offset = tree.levels[previous_level_number].byte_offset + previous_start_bin*20
       @index_file.pos = node_byte_offset
       data = @index_file.read(20).unpack("i*")
-      node = LocusTree::Node.new(data[0], data[1], data[3], data[4])
+      node = LocusTree::Node.new(tree.levels[previous_level_number], data[0], data[1], data[3], data[4])
       node.byte_offset = node_byte_offset
       return node
     end

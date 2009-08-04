@@ -9,15 +9,23 @@ module LocusTree
   # not contained in any other node.
   #
   class Node
-    attr_accessor :start, :stop, :count, :avg, :min, :max
+    attr_accessor :level, :start, :stop, :count, :avg, :min, :max
     attr_accessor :byte_offset
 
-    def initialize(start, stop, count, avg)
-      @start, @stop, @count, @avg = start, stop, count, avg
+    def initialize(level, start, stop, count, avg)
+      @level, @start, @stop, @count, @avg = level, start, stop, count, avg
     end
 
     def to_s
-      return [@start, @stop, @count, @avg].join("\t")
+      return [@level.tree.chromosome, @level.number, @start, @stop, @count, @avg, @byte_offset].join("\t")
+    end
+
+    def parent_node
+      return nil if @level.tree.nr_levels == @level.number + 1
+
+      parent_level_number = @level.number + 1
+      parent_node = @level.tree.container.get_node(@level.tree.chromosome, @start + @level.tree.container.base_size.div(2), parent_level_number)
+      return parent_node
     end
   end
 end
