@@ -6,17 +6,12 @@ module LocusTree
   # bottom level nodes (level 0) correspond to single raw datapoints. Different
   # chromosomes cannot be part of the same tree (see LocusTree::Container).
   class Tree
-    include DataMapper::Resource
+    attr_accessor :chromosome, :nr_levels
+    attr_accessor :levels
 
-    property :id, Integer, :serial => true
-    property :container_id, Integer
-    property :chromosome, String
-    property :max_level, Integer
-    belongs_to :container
-    has n, :levels
-
-    def top_level
-      return self.levels.sort_by{|l| l.number}[-1]
+    def initialize(chr, nr_levels)
+      @chromosome, @nr_levels = chr, nr_levels
+      @levels = Hash.new
     end
   end
 end

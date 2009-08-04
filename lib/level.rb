@@ -5,18 +5,10 @@ module LocusTree
   # to the level of the leaf nodes.
   #
   class Level
-    include DataMapper::Resource
+    attr_accessor :number, :resolution, :byte_offset
 
-    property :id, Integer, :serial => true
-    property :tree_id, Integer, :index => true
-    property :number, Integer
-    property :resolution, Integer # in bp/node
-
-    belongs_to :tree
-
-    def nodes
-      chr = self.tree.chromosome
-      return LocusTree::Node.all(:conditions => ["id LIKE '#{chr}.#{self.number.to_s}.%'"])
+    def initialize(number, byte_offset)
+      @number, @byte_offset = number, byte_offset
     end
   end
 end
