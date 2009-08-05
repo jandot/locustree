@@ -79,6 +79,8 @@ module LocusTree
 
     def fill(feature_file)
       nr_of_features = `wc -l #{feature_file}`.split[0].to_i
+      STDERR.puts "Number of features in file: " + nr_of_features.to_s
+      
       # Add the feature to the smallest node that encloses it
       pbar = ProgressBar.new('filling', nr_of_features)
       File.open(feature_file).each do |line|
@@ -137,6 +139,18 @@ module LocusTree
         end
       end
       return container
+    end
+
+    def header
+      output = Array.new
+      output.push(@header_size)
+      output.push(@base_size)
+      output.push(@nr_children)
+      output.push(@aggregate_order)
+      @trees.values.each do |tree|
+        output.push([tree.chromosome, tree.nr_levels, tree.levels.values.collect{|l| l.byte_offset}.join("\t")].join("\t"))
+      end
+      return output.join("\n")
     end
 
     def get_node(chr_number, pos, level_number)
