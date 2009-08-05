@@ -1,13 +1,10 @@
 require 'enumerator'
-require 'dm-core'
-require 'dm-aggregates'
 require 'progressbar'
 require 'logger'
 
 require File.dirname(__FILE__) + '/range.rb'
 require File.dirname(__FILE__) + '/locus.rb'
 require File.dirname(__FILE__) + '/fixnum.rb'
-#require File.dirname(__FILE__) + '/string.rb'
 require File.dirname(__FILE__) + '/container.rb'
 require File.dirname(__FILE__) + '/tree.rb'
 require File.dirname(__FILE__) + '/level.rb'
@@ -53,7 +50,10 @@ if __FILE__ == $0
   puts container.get_node(1,20_000_000,3).to_s
   puts container.get_node(1,20_000_001,3).to_s
   puts container.get_node(1,20_000_001,14).to_s
-  container.get_nodes(1,5,25000,0).each do |node|
+  container.get_nodes(3,177000000,190000000,3).each do |node|
+    puts node.to_s
+  end
+  container.get_nodes(3,177000000,190000000,6).each do |node|
     puts node.to_s
   end
 end
