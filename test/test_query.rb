@@ -17,13 +17,13 @@ class TestQuery < Test::Unit::TestCase
   def test_get_node_single_position_one_feature
     node = @container.get_node('1',1,0)
     assert_equal([1,5,1,1,17], [node.start, node.stop, node.count, node.flag, node.sum])
-    assert_equal([12345], node.feature_byte_offsets)
+    assert_equal([22], node.feature_byte_offsets)
   end
 
   def test_get_node_single_position_multiple_features
     node = @container.get_node('1',15,1)
     assert_equal([11,20,2,1,39], [node.start, node.stop, node.count, node.flag, node.sum])
-    assert_equal([23456,67890], node.feature_byte_offsets)
+    assert_equal([31,42], node.feature_byte_offsets)
   end
 
   # Get nodes for range
@@ -40,7 +40,7 @@ class TestQuery < Test::Unit::TestCase
     nodes = @container.get_nodes('2',3,14,0)
     assert_equal(3, nodes.length)
     assert_equal([1,5,0], [nodes[0].start, nodes[0].stop, nodes[0].flag])
-    assert_equal([6,10,1,1,5,[45678]], [nodes[1].start, nodes[1].stop, nodes[1].count, nodes[1].flag, nodes[1].sum, nodes[1].feature_byte_offsets])
+    assert_equal([6,10,1,1,5,[64]], [nodes[1].start, nodes[1].stop, nodes[1].count, nodes[1].flag, nodes[1].sum, nodes[1].feature_byte_offsets])
     assert_equal([11,15,0], [nodes[2].start, nodes[2].stop, nodes[2].flag])
   end
 
@@ -48,7 +48,7 @@ class TestQuery < Test::Unit::TestCase
     nodes = @container.get_nodes('1',5,25,1)
     assert_equal(3, nodes.length)
     assert_equal([1,10,0], [nodes[0].start, nodes[0].stop, nodes[0].flag])
-    assert_equal([11,20,2,1,39,[23456,67890]], [nodes[1].start, nodes[1].stop, nodes[1].count, nodes[1].flag, nodes[1].sum, nodes[1].feature_byte_offsets])
+    assert_equal([11,20,2,1,39,[31,42]], [nodes[1].start, nodes[1].stop, nodes[1].count, nodes[1].flag, nodes[1].sum, nodes[1].feature_byte_offsets])
     assert_equal([21,28,0], [nodes[2].start, nodes[2].stop, nodes[2].flag])
   end
 
