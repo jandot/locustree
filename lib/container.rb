@@ -181,19 +181,6 @@ module LocusTree
         end
       end
       pbar.finish
-
-#      # Add the feature to the end of the file
-#      pbar = ProgressBar.new('adding to end', nr_of_features)
-#      @index_file.seek(-1, File::SEEK_END)
-#      line_counter = 0
-#      File.open(feature_file).each do |line|
-#        pbar.inc
-#        line_counter += 1
-#        name, chr, start, stop = line.chomp.split("\t")
-#        @index_file << [[chr.rjust(2,'0'), start.rjust(9,'0'), stop.rjust(9,'0')].join('_')].pack("a22")
-#        @index_file << [line_counter].pack("i")
-#      end
-#      pbar.finish
     end
 
     def self.open(filename)
@@ -228,10 +215,6 @@ module LocusTree
           end
         end
       end
-      node_offsets = container.index_file.read(container.header_byte_size - container.index_file.pos).unpack("Q*")
-#      STDERR.puts node_offsets.join("\t")
-#      STDERR.puts container.index_file.read(28).unpack("I5Q").join("\t")
-#      STDERR.puts container.to_yaml
       return container
     end
 
