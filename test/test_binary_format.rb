@@ -28,10 +28,10 @@ class TestBinaryFormat < Test::Unit::TestCase
     assert_equal(2, levels_chr1[2].node_offsets.length)
     assert_equal(1, levels_chr1[3].nr_nodes)
     assert_equal(1, levels_chr1[3].node_offsets.length)
-    assert_equal([279,307,319,331,343,355], levels_chr1[0].node_offsets)
-    assert_equal([367,379,415], levels_chr1[1].node_offsets)
-    assert_equal([427,439], levels_chr1[2].node_offsets)
-    assert_equal([451], levels_chr1[3].node_offsets)
+    assert_equal([287,315,327,339,351,363], levels_chr1[0].node_offsets)
+    assert_equal([375,387,423], levels_chr1[1].node_offsets)
+    assert_equal([435,447], levels_chr1[2].node_offsets)
+    assert_equal([459], levels_chr1[3].node_offsets)
 
     levels_chr2 = @container.trees['2'].levels.values
     assert_equal(4, levels_chr2[0].nr_nodes)
@@ -40,8 +40,8 @@ class TestBinaryFormat < Test::Unit::TestCase
     assert_equal(2, levels_chr2[1].node_offsets.length)
     assert_equal(1, levels_chr2[2].nr_nodes)
     assert_equal(1, levels_chr2[2].node_offsets.length)
-    assert_equal([479,491,519,531], levels_chr2[0].node_offsets)
-    assert_equal([543,555], levels_chr2[1].node_offsets)
-    assert_equal([583], levels_chr2[2].node_offsets)
+    assert_equal([487,499,527,539], levels_chr2[0].node_offsets)
+    assert_equal([551,563], levels_chr2[1].node_offsets)
+    assert_equal([591], levels_chr2[2].node_offsets)
   end
 end

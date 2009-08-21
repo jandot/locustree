@@ -207,8 +207,8 @@ module LocusTree
       # For each chromosome: get the level offsets
 
       nr_chromosomes.times do
-        chr_number, nr_levels = container.index_file.read(8).unpack("I2")
-        tree = LocusTree::Tree.new(container, chr_number.to_s, CHROMOSOME_LENGTHS[chr_number], nr_levels)
+        chr_number, chr_length, nr_levels = container.index_file.read(12).unpack("I3")
+        tree = LocusTree::Tree.new(container, chr_number.to_s, chr_length, nr_levels)
         container.trees[chr_number.to_s] = tree
         level_offsets = container.index_file.read(8*nr_levels).unpack("Q*")
         level_offsets.each_with_index do |level_offset, level_number|
