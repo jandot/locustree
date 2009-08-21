@@ -13,7 +13,7 @@ module LocusTree
     attr_accessor :feature_byte_offsets
     attr_accessor :byte_offset
 
-    def initialize(level, start, stop, count = 0, flag = 0, sum = nil, min = nil, max = nil, feature_byte_offsets = Array.new)
+    def initialize(level, start, stop, count = 0, flag = 0, sum = nil, min = nil, max = nil, feature_byte_offsets = [])
       @level, @start, @stop, @count, @flag, @sum, @min, @max, @feature_byte_offsets = level, start, stop, count, flag, sum, min, max, feature_byte_offsets
     end
 

@@ -33,13 +33,13 @@ module LocusTree
           elsif flag == 4
             max = @tree.container.index_file.read(4).unpack("I")[0]
           elsif flag == 3
-            sum, min = @tree.container.index_file.read(8).unpack("I*")
+            sum, min = @tree.container.index_file.read(8).unpack("I2")
           elsif flag == 5
-            sum, max = @tree.container.index_file.read(8).unpack("I*")
+            sum, max = @tree.container.index_file.read(8).unpack("I2")
           elsif flag == 6
-            min, max = @tree.container.index_file.read(8).unpack("I*")
+            min, max = @tree.container.index_file.read(8).unpack("I2")
           elsif flag == 7
-            sum, min, max = @tree.container.index_file.read(12).unpack("I*")
+            sum, min, max = @tree.container.index_file.read(12).unpack("I3")
           end
           feature_offsets = @tree.container.index_file.read(count*8).unpack("Q*")
         end

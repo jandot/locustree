@@ -188,7 +188,7 @@ module LocusTree
       container.index_file = File.open(filename, 'rb')
       container.magic = container.index_file.read(12).unpack("a*")[0]
       source_filename_length = container.index_file.read(4).unpack("i")[0]
-      container.source_file = container.index_file.read(source_filename_length).unpack("a*")[0]
+      container.source_file = File.open(container.index_file.read(source_filename_length).unpack("a*")[0])
       container.header_byte_size, container.base_size, container.nr_children, nr_chromosomes = container.index_file.read(20).unpack("QI3")
       container.trees = Hash.new
       # For each chromosome: get the level offsets
@@ -234,5 +234,24 @@ module LocusTree
       return @trees[chr_number].enclosing_node(start, stop)
     end
 
+    def get_features(chr_number, start, stop)
+      tree = @trees[chr_number]
+      answer = Array.new
+      level_number = 0
+      while level_number < tree.nr_levels
+        level = tree.levels[level_number]
+        level.nodes(start, stop).each do |node|
+          node.feature_byte_offsets.each do |feature_byte_offset|
+            @source_file.pos = feature_byte_offset
+            feat_chr, feat_start, feat_stop, feat_value = @source_file.readline.chomp.split(/\t/)
+            if feat_start.to_i.between?(start, stop) and feat_stop.to_i.between?(start, stop)
+              answer.push(Feature.new(feat_chr, feat_start.to_i, feat_stop.to_i, feat_value.to_i))
+            end
+          end
+        end
+        level_number += 1
+      end
+      return answer
+    end
   end
 end
