@@ -1,13 +1,21 @@
 #!/usr/bin/ruby
 f = File.open('minimal_example.bed.idx','wb')
+
+# Part A of the header (see Google Document to see what this means)
 f << ["LocusTree_v1"].pack("a*")
 f << [19].pack("I")
 f << ["minimal_example.bed"].pack("a*")
 f << [287].pack("Q")
 f << [5,2,2].pack("I*")
+
+# Part B of the header
 f << [1,28,4,135,183,207,223].pack("I3Q*")
 f << [2,19,3,231,263,279].pack("I3Q*")
+
+# Part C of the header
 f << [287,315,327,339,351,363,375,387,423,435,447,459,487,499,527,539,551,563,591].pack("Q*")
+
+# Data
 f << [1,5,1,1,17,12345].pack("I5Q")
 f << [6,10,0].pack("I*")
 f << [11,15,0].pack("I*")
