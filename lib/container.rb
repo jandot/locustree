@@ -23,14 +23,13 @@ module LocusTree
       header_a_byte_size = 0
       header_b_byte_size = 0
       header_c_byte_size = 0
-      data_part_offset = 0
       
       # Create header
       header_a = Array.new
       header_b = Array.new
       header_b_hash = Hash.new
       header_c = Array.new
-      # 1. General information: part A
+
       header_a << "LocusTree_v1"
       header_a << feature_file.length
       header_a << feature_file
@@ -44,16 +43,16 @@ module LocusTree
       running_offset_header_b = 0
       running_offset_header_c = 0
       running_offset_data = 0
-      CHROMOSOME_LENGTHS.keys.each do |chr_number|
+      CHROMOSOME_LENGTHS.keys.sort.each do |chr_number|
         header_b_hash[chr_number] = Hash.new
         header_b_hash[chr_number][:chr_length] = CHROMOSOME_LENGTHS[chr_number]
         nr_levels = (Math.log(CHROMOSOME_LENGTHS[chr_number].to_f/base_size).to_f/Math.log(nr_children)).floor + 2
         header_b_hash[chr_number][:nr_levels] = nr_levels
         running_offset_header_b += 12
-        running_offset_header_b += nr_levels*8
-        header_b_hash[chr_number][:node_offsets] = Array.new
+        running_offset_header_b += nr_levels*(4 + 8) # bytesize for level_number + byte_size for offset
+        header_b_hash[chr_number][:node_offsets] = Hash.new #key = levelnumber
         nr_levels.times do |level_number|
-          header_b_hash[chr_number][:node_offsets] << running_offset_header_c
+          header_b_hash[chr_number][:node_offsets][level_number] = running_offset_header_c
           nr_nodes = (CHROMOSOME_LENGTHS[chr_number]/(base_size*(nr_children**level_number))).ceil + 1
           running_offset_header_c += nr_nodes*8
           STDERR.puts "Nr nodes: " + nr_nodes.to_s
@@ -70,14 +69,15 @@ module LocusTree
 
       container.index_file << header_a.pack("a12Ia#{feature_file.length}QI3")
 
-      header_b_hash.keys.each do |chr_number|
+      header_b_hash.keys.sort.each do |chr_number|
         STDERR.puts "Going through chr " + chr_number.to_s
         container.index_file << [chr_number].pack("I")
         container.index_file << [CHROMOSOME_LENGTHS[chr_number]].pack("I")
         container.index_file << [header_b_hash[chr_number][:nr_levels]].pack("I")
-        header_b_hash[chr_number][:node_offsets].each do |node_offset|
-          STDERR.puts [node_offset, header_b_byte_size, node_offset + header_a_byte_size + header_b_byte_size].join("\t")
-          container.index_file << [node_offset + header_a_byte_size + header_b_byte_size].pack("Q")
+        header_b_hash[chr_number][:node_offsets].keys.each do |level_number|
+          node_offset = header_b_hash[chr_number][:node_offsets][level_number]
+          STDERR.puts [level_number, node_offset, header_b_byte_size, node_offset + header_a_byte_size + header_b_byte_size].join("\t")
+          container.index_file << [level_number, node_offset + header_a_byte_size + header_b_byte_size].pack("IQ")
         end
       end
 
@@ -87,71 +87,15 @@ module LocusTree
       
       container.index_file.pos = 12 + 4 + feature_file.length
       container.index_file << [header_a_byte_size + header_b_byte_size + header_c_byte_size].pack("Q")
-      container.index_file.close
+      container.index_file.pos = header_a_byte_size + header_b_byte_size + header_c_byte_size
 
-      exit
-
-      container.total_nr_nodes = 0
-      nr_levels_per_chromosome = Hash.new
-      CHROMOSOME_LENGTHS.keys.each do |chr_number|
-        max_level_nr = ((Math.log(CHROMOSOME_LENGTHS[chr_number]) - Math.log(base_size)).to_f/Math.log(nr_children)).floor + 1
-        (max_level_nr + 1).times do |l|
-          container.total_nr_nodes += (CHROMOSOME_LENGTHS[chr_number].to_f/(base_size*(nr_children**l))).ceil
-        end
-        nr_levels = (Math.log(CHROMOSOME_LENGTHS[chr_number].to_f/base_size).to_f/Math.log(nr_children)).floor + 2
-        nr_levels_per_chromosome[chr_number] = nr_levels
-        container.header_b_byte_size += 4 + 4 + nr_levels*4 #chr_number + nr_levels + level_offsets
-      end
-      header_a << container.total_nr_nodes
-      container.header_c_byte_size = container.total_nr_nodes * 8 # have to use q instead of i
-
-      # 2. Level offsets: part B
-      container.trees = Hash.new
-      byte_counter_level_offset = container.header_a_byte_size
-      byte_counter_node_offset = container.header_a_byte_size + container.header_b_byte_size
-      CHROMOSOME_LENGTHS.keys.sort.each do |chr_number|
-        container.tree_offsets[chr_number] = byte_counter_level_offset
-        header_b << chr_number.to_i
-        container.trees[chr_number] = LocusTree::Tree.new(container, chr_number, nr_levels_per_chromosome[chr_number])
-        header_b << nr_levels_per_chromosome[chr_number]
-        byte_counter_level_offset += 8 + nr_levels_per_chromosome[chr_number]*4
-        nr_levels_per_chromosome[chr_number].times do |n|
-          # Add level_offset to header
-          level = LocusTree::Level.new(container.trees[chr_number], n, byte_counter_node_offset)
-          level.first_node_offset = 
-          container.trees[chr_number].levels[n] = level
-          container.trees[chr_number].level_offsets[n] = byte_counter_node_offset
-          header_b << byte_counter_node_offset
-          byte_counter_node_offset += 4
-#          nr_nodes_in_level = (CHROMOSOME_LENGTHS[chr_number].to_f/(base_size*(nr_children**n))).ceil
-#          bytes_needed_for_node_offsets_in_level = nr_nodes_in_level * 4
-#          container.trees[chr_number].levels[n] = LocusTree::Level.new(container.trees[chr_number], n, level_byte_offset)
-#          level_byte_offset += bytes_needed_for_node_offsets_in_level
-
-          # Add node_offsets to header
-          
-        end
-      end
-
-      # 3. Node offsets: part C
-      container.data_part_offset = container.header_a_byte_size + container.header_b_byte_size + container.header_c_byte_size
-      container.total_nr_nodes.times do |n|
-        header_c << container.data_part_offset + n*container.initial_node_byte_size
-      end
-      
-      container.header_byte_size = container.header_a_byte_size + container.header_b_byte_size + container.header_c_byte_size
-      header_a.unshift(container.header_byte_size)
-      header_a.unshift("LocusTree_v1")
-      container.index_file << header_a.pack("a12i3a17iq")
-      container.index_file << header_b.pack("i*")
-      container.index_file << header_c.pack("q*")
-
+      # Write actual structure
       STDERR.puts "Creating structure"
       # Create structure including the empty space
       node_counter = 0
-      CHROMOSOME_LENGTHS.keys.sort.each do |chr_number|
-        STDERR.puts "Nr of levels: " + nr_levels_per_chromosome[chr_number].to_s
-        nr_levels_per_chromosome[chr_number].times do |level_number|
+      header_b_hash.keys.sort.each do |chr_number|
+        STDERR.puts "Nr of levels: " + header_b_hash[chr_number].to_s
+        header_b_hash[chr_number][:nr_levels].times do |level_number|
           STDERR.puts [chr_number, level_number].join("\t")
           bin_size = base_size*(nr_children**level_number)
           start = 1
@@ -170,6 +114,7 @@ module LocusTree
 
       end
       container.index_file.close
+      exit
       container.index_file = File.open(filename, 'rb+')
       container.fill(feature_file, container.initial_node_byte_size)
       container.cull_empty_space
