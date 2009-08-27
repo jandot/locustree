@@ -5,15 +5,15 @@ f = File.open('minimal_example.bed.idx','wb')
 f << ["LocusTree_v1"].pack("a*")
 f << [19].pack("I")
 f << ["minimal_example.bed"].pack("a*")
-f << [287].pack("Q")
+f << [315].pack("Q")
 f << [5,2,2].pack("I*")
 
 # Part B of the header
-f << [1,28,4,135,183,207,223].pack("I3Q*")
-f << [2,19,3,231,263,279].pack("I3Q*")
+f << [1,28,4,6,163,3,211,2,235,1,251].pack("I3IQIQIQIQ")
+f << [2,19,3,4,259,2,291,1,307].pack("I3IQIQIQ")
 
 # Part C of the header
-f << [287,315,327,339,351,379,391,403,439,451,463,475,503,515,543,555,567,579,607].pack("Q*")
+f << [315,343,355,367,379,407,419,431,467,479,491,503,531,543,571,583,595,607,635].pack("Q*")
 
 # Data
 f << [1,5,1,1,17,22].pack("I5Q")       # 287 = byte offset of start of this line
