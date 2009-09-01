@@ -6,43 +6,81 @@ module LocusTree
   class Container
     attr_accessor :magic
     attr_accessor :source_file, :index_file
+    attr_accessor :header_a_template, :header_b_template
     attr_accessor :header_byte_size, :data_part_offset, :initial_node_byte_size
-    attr_accessor :aggregate_order
+    attr_accessor :header_a_byte_size, :header_b_byte_size, :header_c_byte_size
+    attr_accessor :aggregate_flag
     attr_accessor :base_size, :nr_children
     attr_accessor :trees, :tree_offsets
     attr_accessor :total_nr_nodes
     
-    def self.create_structure(base_size = 1000, nr_children = 2, feature_file = 'features.bed', aggregate_flag = 3, filename = feature_file + '.idx')
-      initial_byte_size_features_per_node = 120 #Will allow for storing the feature offsets
+    def self.create_structure(base_size = 1000, nr_children = 2, feature_file = 'features.bed', aggregate_flag = 1, filename = feature_file + '.idx')
+      # Suppose the file looks like this:
+      #   # HEADER A
+      #   LocusTree_v1
+      #   19  minimal_example.bed
+      #   319 # size of header
+      #   1 # aggregate flag
+      #   5  2
+      #   2
+      #   # HEADER B
+      #   1  28  4  6  167  3  215  2  239  1  255 # byte offsets: 59,63,67,71,75,83,87,85,93,97,105
+      #   2  19  3  4  263  2  295  1  311         # byte offsets: 113,117,121,125,129,137,141,149,153
+      #   # HEADER C
+      #   319  347  359  371  383  411  423  435  471  483  495  507  535  547  575  587  599  611  639
+      #   # DATA PART
+      #   1  5  1  1  17  22 # 319 = byte offset of start of this line
+      #   6  10 0            # 347
+      #   11 15 0            # 359
+      #   16 20 0            # 371
+      #   ...
+      #
+      # The fact that there are multiple references to byte offsets get quite confusing. The offsets in header B
+      # (167, 215, 239 and 255) are the byte offsets of the node byte offsets in header C.
+      # Variable naming convention:
+      #   * The actual byte offsets (i.e. the values) get a variable name *_offset.
+      #     For example: 137, 215, 239 and 255 are level_offsets for chromosome 1
+      #     and 319, 347, 359, .. are the node_offsets for level 0 in chromosome 1.
+      #   * The byte offsets that contain this information get a variable name *_pointer_offset.
+      #     For example: 75, 87, 93 and 105 are the node_pointer_offsets for each level in chromosome 1
+
+      initial_nr_dummy_features_per_node = 10 #Will allow for storing the feature offsets. Will put NULL bytes there at first.
 
       container = self.new
       container.index_file = File.open(filename, 'wb')
       container.base_size = base_size
       container.nr_children = nr_children
+      container.aggregate_flag = aggregate_flag
+      container.trees = Hash.new
 
-      header_a_byte_size = 0
-      header_b_byte_size = 0
-      header_c_byte_size = 0
+      container.header_a_byte_size = 0
+      container.header_b_byte_size = 0
+      container.header_c_byte_size = 0
       
       # Create header
       header_a = Array.new
-      header_b = Array.new
       header_b_hash = Hash.new
+      header_b = Array.new
       header_c = Array.new
 
       header_a << "LocusTree_v1"
       header_a << feature_file.length
       header_a << feature_file
       header_a << 0 # will become byteoffset datapart
+      header_a << aggregate_flag
       header_a << base_size
       header_a << nr_children
       header_a << CHROMOSOME_LENGTHS.keys.length
-
-      header_a_byte_size = 12 + 4 + feature_file.length + 8 + 4 + 4 + 4 #magic + length filename + filename + byteoffset datapart + base_size + nr_children + nr chromosomes
-      STDERR.puts "header_a_byte_size = " + header_a_byte_size.to_s
+      container.header_a_byte_size = 12 + 4 + feature_file.length + 8 + 4 + 4 + 4 + 4 #magic + length filename + filename + byteoffset datapart + aggregate_flag + base_size + nr_children + nr chromosomes
       running_offset_header_b = 0
       running_offset_header_c = 0
       running_offset_data = 0
+
+      container.header_a_template = "a12Ia#{feature_file.length}QI4"
+      container.header_b_template = ""
+
+      STDERR.puts "A"
+      #
       CHROMOSOME_LENGTHS.keys.sort.each do |chr_number|
         header_b_hash[chr_number] = Hash.new
         header_b_hash[chr_number][:chr_length] = CHROMOSOME_LENGTHS[chr_number]
@@ -51,121 +89,181 @@ module LocusTree
         running_offset_header_b += 12
         running_offset_header_b += nr_levels*(4 + 8) # bytesize for level_number + byte_size for offset
         header_b_hash[chr_number][:node_offsets] = Hash.new #key = levelnumber
+
+        tree = Tree.new(container, chr_number, CHROMOSOME_LENGTHS[chr_number], nr_levels)
         nr_levels.times do |level_number|
           header_b_hash[chr_number][:node_offsets][level_number] = running_offset_header_c
           nr_nodes = (CHROMOSOME_LENGTHS[chr_number]/(base_size*(nr_children**level_number))).ceil + 1
+#          STDERR.puts "running offset C " + running_offset_header_c.to_s
+          tree.levels[level_number] = Level.new(tree, level_number, nr_nodes)#, running_offset_header_c) # ATTENTION: running node offset is relative to start of header part C => adding length of part A and B later
           running_offset_header_c += nr_nodes*8
-          STDERR.puts "Nr nodes: " + nr_nodes.to_s
           nr_nodes.times do
-            header_c << running_offset_data; running_offset_data += initial_byte_size_features_per_node
+            header_c << running_offset_data; running_offset_data += (20 + 8*initial_nr_dummy_features_per_node)
+          end
+        end
+        container.trees[chr_number] = tree
+      end
+
+      container.header_b_byte_size = running_offset_header_b
+      container.header_c_byte_size = running_offset_header_c
+      container.header_byte_size = container.header_a_byte_size + container.header_b_byte_size + container.header_c_byte_size
+
+      container.index_file << header_a.pack(container.header_a_template)
+
+      STDERR.puts "B"
+      # For each level first_node_offset we still need to add the byte size of headers A and B
+      all_node_offsets = header_c.clone
+      header_b_hash.keys.each do |chr_number|
+        tree = container.trees[chr_number]
+        tree.levels.keys.each do |level_number|
+          level = tree.levels[level_number]
+          level.node_offsets = Array.new
+          level.nr_nodes.times do
+            level.node_offsets.push(all_node_offsets.shift + container.header_a_byte_size + container.header_b_byte_size + container.header_c_byte_size)
           end
         end
       end
 
-      header_b_byte_size = running_offset_header_b
-      header_c_byte_size = running_offset_header_c
-      STDERR.puts "header_b_byte_size = " + header_b_byte_size.to_s
-      STDERR.puts "header_c_byte_size = " + header_c_byte_size.to_s
-
-      container.index_file << header_a.pack("a12Ia#{feature_file.length}QI3")
-
+      STDERR.puts "C"
+      # Writing header B to file
       header_b_hash.keys.sort.each do |chr_number|
-        STDERR.puts "Going through chr " + chr_number.to_s
-        container.index_file << [chr_number].pack("I")
-        container.index_file << [CHROMOSOME_LENGTHS[chr_number]].pack("I")
-        container.index_file << [header_b_hash[chr_number][:nr_levels]].pack("I")
-        header_b_hash[chr_number][:node_offsets].keys.each do |level_number|
+        header_b << chr_number.to_i
+        header_b << CHROMOSOME_LENGTHS[chr_number]
+        header_b << header_b_hash[chr_number][:nr_levels]
+        container.header_b_template << "I3"
+        header_b_hash[chr_number][:node_offsets].keys.sort.each do |level_number|
           node_offset = header_b_hash[chr_number][:node_offsets][level_number]
-          STDERR.puts [level_number, node_offset, header_b_byte_size, node_offset + header_a_byte_size + header_b_byte_size].join("\t")
-          container.index_file << [level_number, node_offset + header_a_byte_size + header_b_byte_size].pack("IQ")
+          nr_nodes = (CHROMOSOME_LENGTHS[chr_number]/(base_size*(nr_children**level_number))).ceil + 1
+          header_b << [nr_nodes, node_offset + container.header_a_byte_size + container.header_b_byte_size]
+          container.header_b_template << "IQ"
         end
-      end
 
+      end
+      header_b.flatten!
+      container.index_file << header_b.pack(container.header_b_template)
+
+      STDERR.puts "DEBUG: " + container.header_a_template
+      STDERR.puts "DEBUG: " + container.header_b_template
+
+      # Writing header C to the file
       header_c.each do |node_offset|
-        container.index_file << [node_offset + header_a_byte_size + header_b_byte_size + header_c_byte_size].pack("Q")
+        container.index_file << [node_offset + container.header_a_byte_size + container.header_b_byte_size + container.header_c_byte_size].pack("Q")
       end
-      
-      container.index_file.pos = 12 + 4 + feature_file.length
-      container.index_file << [header_a_byte_size + header_b_byte_size + header_c_byte_size].pack("Q")
-      container.index_file.pos = header_a_byte_size + header_b_byte_size + header_c_byte_size
 
-      # Write actual structure
-      STDERR.puts "Creating structure"
+      STDERR.puts "D"
+      # Adding correct header byte size to header A
+      header_a[3] = container.header_a_byte_size + container.header_b_byte_size + container.header_c_byte_size
+      container.index_file.pos = 12 + 4 + feature_file.length
+      container.index_file << [container.header_a_byte_size + container.header_b_byte_size + container.header_c_byte_size].pack("Q")
+      container.index_file.pos = container.header_a_byte_size + container.header_b_byte_size + container.header_c_byte_size
+
+      container.header_byte_size = container.header_a_byte_size + container.header_b_byte_size + container.header_c_byte_size
+
       # Create structure including the empty space
       node_counter = 0
       header_b_hash.keys.sort.each do |chr_number|
-        STDERR.puts "Nr of levels: " + header_b_hash[chr_number].to_s
         header_b_hash[chr_number][:nr_levels].times do |level_number|
-          STDERR.puts [chr_number, level_number].join("\t")
           bin_size = base_size*(nr_children**level_number)
           start = 1
           stop = start + bin_size - 1
           while stop < CHROMOSOME_LENGTHS[chr_number]
-            container.index_file << [start,stop,0,0,0].pack("i*") #start,stop,aggregate_flag,count,sum
-            container.index_file.pos += initial_byte_size_features_per_node
+            container.index_file << [start,stop,0,0,0].pack("I*") #start,stop,total_count,count,sum
+#            initial_nr_dummy_features_per_node.times do
+#              container.index_file << [0].pack("Q")
+#            end
+            container.index_file.pos += 8*initial_nr_dummy_features_per_node
             start = stop + 1
             stop = start + bin_size - 1
             node_counter += 1
           end
-          container.index_file << [start, CHROMOSOME_LENGTHS[chr_number],0,0,0].pack("i*") #start,stop,aggregate_flag,count,sum
-          container.index_file.pos += initial_byte_size_features_per_node
+          container.index_file << [start, CHROMOSOME_LENGTHS[chr_number],0,0,0].pack("I*") #start,stop,total_count,count,sum
+#          initial_nr_dummy_features_per_node.times do
+#            container.index_file << [0].pack("Q")
+#          end
+          container.index_file.pos += 8*initial_nr_dummy_features_per_node
+          STDERR.puts "position: " + container.index_file.pos.to_s
           node_counter += 1
         end
 
       end
+
+#      container.trees.values.sort_by{|v| v.chromosome}.each do |tree|
+#        STDERR.puts '------'
+#        STDERR.puts tree.chromosome
+#        tree.levels.values.sort_by{|v| v.number}.each do |level|
+#          STDERR.puts level.number.to_s + "\t" + level.node_offsets.join(';')
+#        end
+#      end
+#
+#      exit
+      STDERR.puts "E"
+      STDERR.puts "Index file at position " + container.index_file.pos.to_s
       container.index_file.close
-      exit
       container.index_file = File.open(filename, 'rb+')
       container.fill(feature_file, container.initial_node_byte_size)
-      container.cull_empty_space
+      container.cull_empty_space(header_a, header_b, header_c)
       container.index_file.close
+      system("mv locustree.tmp #{filename}")
       container.index_file = File.open(filename, 'rb')
-      STDERR.puts "Number of nodes: " + node_counter.to_s
       return container
     end
 
-    def cull_empty_space
+    def cull_empty_space(header_a, header_b, header_c)
+      culled_index_file = File.open('locustree.tmp','wb')
+      STDERR.puts "header_a: " + header_a.join(" ")
+      STDERR.puts "size: " + @header_byte_size.to_s
+      culled_index_file << header_a.pack(@header_a_template)
+      culled_index_file << header_b.pack(@header_b_template)
+
       # For each node: remove the empty space and update the nodebyteoffset in the header
+      corrected_header_c = Array.new
+      @index_file.pos = @header_byte_size
+      culled_index_file.pos = @header_byte_size
+      corrected_header_c << @header_byte_size
+      header_c.each do |node_offset|
+        node_offset += @header_byte_size
+        @index_file.pos = node_offset
+        start, stop, total_count, count, sum = @index_file.read(20).unpack("I*")
+        culled_index_file << [start, stop, total_count, count, sum].pack("I*")
+        STDERR.puts "start, stop, total_count, count, sum = " + [start, stop, total_count, count, sum].join("\t")
+        STDERR.puts "position culled index file BEFORE: " + culled_index_file.pos.to_s
+        culled_index_file << @index_file.read(8*count)
+        STDERR.puts "position culled index file AFTER: " + culled_index_file.pos.to_s
+        STDERR.puts "Corrected: " + node_offset.to_s + " --> " + corrected_header_c[-1].to_s
+        corrected_header_c << culled_index_file.pos
+      end
+      corrected_header_c.pop
+
+      culled_index_file.pos = @header_a_byte_size + @header_b_byte_size
+      corrected_header_c.each do |node_offset|
+        culled_index_file << [node_offset].pack("Q")
+      end
     end
 
     def fill(feature_file, node_byte_size)
       nr_of_features = `wc -l #{feature_file}`.split[0].to_i
-      STDERR.puts "Number of features in file: " + nr_of_features.to_s
       
       # Add the feature to the smallest node that encloses it
-      pbar = ProgressBar.new('filling', nr_of_features)
-      File.open(feature_file).each do |line|
-        pbar.inc
-        name, chr, start, stop = line.chomp.split("\t")
+#      pbar = ProgressBar.new('filling', nr_of_features)
+      f = File.open(feature_file)
+      f.each do |line|
+        next if line =~ /^#/
+
+        feature_offset = f.pos - line.length
+#        pbar.inc
+        chr, start, stop, value = line.chomp.split("\t")
+#        STDERR.puts "Feature: " + [chr, start, stop].join("\t")
 
         enclosing_node = self.get_enclosing_node(chr.to_i, start.to_i, stop.to_i)
-        @index_file.pos = enclosing_node.byte_offset
-        node_start, node_stop, node_flag, node_count, node_sum = @index_file.read(20).unpack("i*")
-        STDERR.puts [node_start, node_stop, node_flag, node_count].join("\t")
-        node_feature_offsets = @index_file.read(node_count*4).unpack("i*")
-        node_count += 1
-        node_feature_offsets.push(start) #TODO: replace this with byte offset in GFF/BED file instead of start
-        @index_file.pos = enclosing_node.byte_offset
-        @index_file.write([node_start, node_stop, node_flag, node_count, node_sum, node_feature_offsets].flatten.pack("i*"))
-#        @index_file.pos += 4*3
-#        count = @index_file.read(4).unpack("i")[0] + 1
-#        @index_file.pos -= 4
-#        @index_file.write([count].pack("i"))
-
+        enclosing_node.add_feature(feature_offset, value.to_i)
 
         parent_node = enclosing_node.parent_node
-        unless parent_node.nil?
-          while parent_node.level.number < parent_node.level.tree.nr_levels - 1
-            @index_file.pos = parent_node.byte_offset
-            @index_file.pos += 4*3
-            count = @index_file.read(4).unpack("i")[0] + 1
-            @index_file.pos -= 4
-            @index_file.write([count].pack("i"))
-            parent_node = parent_node.parent_node
-          end
+        until parent_node.nil?
+          parent_node.add_feature(nil, value.to_i)
+          parent_node = parent_node.parent_node
         end
       end
-      pbar.finish
+#      pbar.finish
     end
 
     def self.open(filename)
@@ -196,6 +294,7 @@ module LocusTree
           container.index_file.pos = level.offset
           level.nr_nodes.times do
             node_offset = container.index_file.read(8).unpack("Q")[0]
+#            STDERR.puts "node offset = " + node_offset.to_s
             level.node_offsets.push(node_offset)
           end
         end
@@ -216,7 +315,7 @@ module LocusTree
     end
 
     def get_enclosing_node(chr_number, start, stop)
-      return @trees[chr_number].enclosing_node(start, stop)
+      return @trees[chr_number.to_s].enclosing_node(start, stop)
     end
 
     def get_features(chr_number, start, stop)

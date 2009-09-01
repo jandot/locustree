@@ -9,12 +9,12 @@ module LocusTree
   # not contained in any other node.
   #
   class Node
-    attr_accessor :level, :start, :stop, :count, :flag, :sum, :min, :max
+    attr_accessor :level, :start, :stop, :total_count, :count, :sum, :min, :max
     attr_accessor :feature_byte_offsets
     attr_accessor :byte_offset
 
-    def initialize(level, start, stop, count = 0, flag = 0, sum = nil, min = nil, max = nil, feature_byte_offsets = [])
-      @level, @start, @stop, @count, @flag, @sum, @min, @max, @feature_byte_offsets = level, start, stop, count, flag, sum, min, max, feature_byte_offsets
+    def initialize(level, start, stop, total_count = 0, count = 0, sum = nil, min = nil, max = nil, feature_byte_offsets = [])
+      @level, @start, @stop, @total_count, @count, @sum, @min, @max, @feature_byte_offsets = level, start, stop, total_count, count, sum, min, max, feature_byte_offsets
     end
 
     def to_s
@@ -34,6 +34,28 @@ module LocusTree
 
       child_level_number = @level.number - 1
       return @level.tree.container.get_nodes(@level.tree.chromosome, @start, @stop, child_level_number)
+    end
+
+    def add_feature(feature_offset, value)
+#      STDERR.puts "DEBUG: " + @byte_offset.to_s
+      @total_count += 1
+      @sum = ( @sum.nil? ) ? value : @sum + value
+      unless feature_offset.nil?
+        @count += 1
+        @feature_byte_offsets.push(feature_offset)
+      end
+      self.save
+    end
+
+    def save
+      @level.tree.container.index_file.pos = @byte_offset
+#      [@start, @stop, @total_count, @count, @sum].each do |f|
+#        STDERR.puts f.class.to_s
+#      end
+#      @feature_byte_offsets.each do |f|
+#        STDERR.puts f.class.to_s
+#      end
+      @level.tree.container.index_file << [@start, @stop, @total_count, @count, @sum, @feature_byte_offsets].flatten.pack("I5Q*")
     end
   end
 end

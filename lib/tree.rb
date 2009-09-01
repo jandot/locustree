@@ -23,7 +23,7 @@ module LocusTree
       previous_level_number = level_number
       start_bin = (start-1).div(resolution_at_level)
       stop_bin = (stop-1).div(resolution_at_level)
-      while start_bin == stop_bin and level_number > 0
+      while start_bin == stop_bin and level_number >= 0
         previous_start_bin = start_bin
         previous_level_number = level_number
         level_number -= 1
