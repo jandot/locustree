@@ -10,14 +10,14 @@ module LocusTree
 
     def initialize(tree, number, nr_nodes)
       @tree, @number, @nr_nodes = tree, number, nr_nodes
+      @resolution = @tree.container.base_size*(@tree.container.nr_children**@number)
       @node_offsets = Array.new
     end
 
     def nodes(start = 0, stop = start)
       answer = Array.new
-      resolution_at_level = @tree.container.base_size*(@tree.container.nr_children**@number)
-      start_node = (start-1).div(resolution_at_level)
-      stop_node = (stop-1).div(resolution_at_level)
+      start_node = (start-1).div(@resolution)
+      stop_node = (stop-1).div(@resolution)
 
 #      STDERR.puts ['=====', @number, '=>', @node_offsets].flatten.join("\t")
       STDERR.puts "chr, level, nr_nodes, offset = " + @tree.chromosome.to_s + "\t" + @number.to_s + "\t" + @nr_nodes.to_s + "\t" + @node_offsets[start_node].to_s
