@@ -16,7 +16,7 @@ module LocusTree
       @levels = Hash.new
     end
 
-    def map_feature(outfile, start, stop, value, name)
+    def map_feature(outfile, start, stop, value, offset)
       start = start.to_i
       stop = stop.to_i
       level_number = @nr_levels - 1 #((Math.log(@chromosome_length) - Math.log(@container.base_size)).to_f/Math.log(@container.nr_children)).floor + 1
@@ -37,7 +37,7 @@ module LocusTree
       end
       smallest = enclosing_nodes.pop
       outfile.puts enclosing_nodes.join("\n") unless enclosing_nodes.length == 0
-      outfile.puts smallest + "\t" + name
+      outfile.puts smallest + "\t" + offset.to_s
     end
 
     def enclosing_node(start, stop)
