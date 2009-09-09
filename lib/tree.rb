@@ -16,6 +16,30 @@ module LocusTree
       @levels = Hash.new
     end
 
+    def map_feature(outfile, start, stop, value, name)
+      start = start.to_i
+      stop = stop.to_i
+      level_number = @nr_levels - 1 #((Math.log(@chromosome_length) - Math.log(@container.base_size)).to_f/Math.log(@container.nr_children)).floor + 1
+      resolution_at_level = @container.base_size*(@container.nr_children**level_number)
+      start_bin_nr = (start-1).div(resolution_at_level)
+      stop_bin_nr = (stop-1).div(resolution_at_level)
+      bin_start = start_bin_nr * resolution_at_level + 1
+
+      enclosing_nodes = Array.new
+      until level_number == -1 or start_bin_nr < stop_bin_nr
+        enclosing_nodes.push([[@chromosome, level_number, start_bin_nr].join(":"), @chromosome, bin_start, [bin_start + resolution_at_level - 1, @chromosome_length].min, 1, value].join("\t"))
+
+        level_number -= 1
+        resolution_at_level = @container.base_size*(@container.nr_children**level_number)
+        start_bin_nr = (start-1).div(resolution_at_level)
+        stop_bin_nr = (stop-1).div(resolution_at_level)
+        bin_start = start_bin_nr * resolution_at_level + 1
+      end
+      smallest = enclosing_nodes.pop
+      outfile.puts enclosing_nodes.join("\n") unless enclosing_nodes.length == 0
+      outfile.puts smallest + "\t" + name
+    end
+
     def enclosing_node(start, stop)
       level_number = @levels.keys.max
       resolution_at_level = @container.base_size*(@container.nr_children**level_number)
